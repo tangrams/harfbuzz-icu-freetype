@@ -260,8 +260,9 @@ set(HARFBUZZ_INCLUDE_DIRS
 
 target_include_directories(harfbuzz
     PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/harfbuzz-generated
     ${CMAKE_CURRENT_SOURCE_DIR}/harfbuzz/src
-    ${CMAKE_CURRENT_SOURCE_DIR}/freetype-2.6/include/
+    ${CMAKE_CURRENT_SOURCE_DIR}/freetype-2.6/include
     ${HARFBUZZ_UNICODE_INCLUDE}
     PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/)
