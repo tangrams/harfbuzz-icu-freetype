@@ -104,6 +104,8 @@ set(PROJECT_VERSION ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH})
 
 # Compiler definitions for building the library
 add_definitions(-DFT2_BUILD_LIBRARY)
+add_definitions(-DHAVE_UNISTD_H)
+add_definitions(-DHAVE_FCNTL_H)
 
 # Specify library include directories
 include_directories("${PROJECT_SOURCE_DIR}/include")
@@ -154,7 +156,8 @@ set(BASE_SRCS
   src/base/ftstream.c
   src/base/ftstroke.c
   src/base/ftsynth.c
-  src/base/ftsystem.c
+  #src/base/ftsystem.c
+  builds/unix/ftsystem.c
   src/base/fttrigon.c
   src/base/fttype1.c
   src/base/ftutil.c
@@ -201,6 +204,17 @@ add_library(freetype
   ${PRIVATE_HEADERS}
   ${BASE_SRCS}
 )
+
+target_include_directories(freetype
+  PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
+  ${CMAKE_CURRENT_SOURCE_DIR}/include/config
+  ${CMAKE_CURRENT_SOURCE_DIR}/include/internal
+ )
+
+target_link_libraries(freetype
+  PUBLIC
+  -lz)
 
 if (BUILD_FRAMEWORK)
   set_property(SOURCE ${PUBLIC_CONFIG_HEADERS}
