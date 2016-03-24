@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    Unix-specific FreeType low-level system interface (body).            */
 /*                                                                         */
-/*  Copyright 1996-2015 by                                                 */
+/*  Copyright 1996-2016 by                                                 */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -26,9 +26,9 @@
 #include FT_INTERNAL_STREAM_H
 
   /* memory-mapping includes and definitions */
-//#ifdef HAVE_UNISTD_H
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
-//#endif
+#endif
 
 #include <sys/mman.h>
 #ifndef MAP_FILE
@@ -60,9 +60,9 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-//#ifdef HAVE_FCNTL_H
+#ifdef HAVE_FCNTL_H
 #include <fcntl.h>
-  //#endif
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>
