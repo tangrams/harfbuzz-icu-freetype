@@ -5,6 +5,10 @@ option(HARFBUZZ_BUILD_UCDN "Enable building of UCDN" ON)
 
 ## Freetype2 ##
 ###############
+option(WITH_ZLIB "Freetype: Enable zlib " OFF)
+option(WITH_BZip "Freetype: Enable bzip2 " OFF)
+option(WITH_HarfBuzz "Freetype: Enable harfbuzz" OFF)
+
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/freetype-2.6)
 
 ## ICU-common ##
