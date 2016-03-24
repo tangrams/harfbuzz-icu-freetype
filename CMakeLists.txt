@@ -211,7 +211,7 @@ endif()
 
 if (HARFBUZZ_BUILD_UCDN)
     set(HARFBUZZ_UNICODE_SRC harfbuzz/src/hb-ft.cc)
-    set(HARFBUZZ_UNICODE_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/harfbuzz-ucdn/)
+    set(HARFBUZZ_UNICODE_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/harfbuzz/src/hb-ucdn/)
     set(HARFBUZZ_UNICODE_DEFINE -DHAVE_UCDN)
 endif()
 
