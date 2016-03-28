@@ -5,6 +5,10 @@ option(HARFBUZZ_BUILD_UCDN "Enable building of UCDN" ON)
 
 ## Freetype2 ##
 ###############
+option(WITH_ZLIB "Freetype: Enable zlib " OFF)
+option(WITH_BZip "Freetype: Enable bzip2 " OFF)
+option(WITH_HarfBuzz "Freetype: Enable harfbuzz" OFF)
+
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/freetype-2.6)
 
 ## ICU-common ##
@@ -207,7 +211,7 @@ endif()
 
 if (HARFBUZZ_BUILD_UCDN)
     set(HARFBUZZ_UNICODE_SRC harfbuzz/src/hb-ft.cc)
-    set(HARFBUZZ_UNICODE_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/harfbuzz-ucdn/)
+    set(HARFBUZZ_UNICODE_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/harfbuzz/src/hb-ucdn/)
     set(HARFBUZZ_UNICODE_DEFINE -DHAVE_UCDN)
 endif()
 
@@ -260,8 +264,9 @@ set(HARFBUZZ_INCLUDE_DIRS
 
 target_include_directories(harfbuzz
     PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/harfbuzz-generated
     ${CMAKE_CURRENT_SOURCE_DIR}/harfbuzz/src
-    ${CMAKE_CURRENT_SOURCE_DIR}/freetype-2.6/include/
+    ${CMAKE_CURRENT_SOURCE_DIR}/freetype-2.6/include
     ${HARFBUZZ_UNICODE_INCLUDE}
     PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/)
