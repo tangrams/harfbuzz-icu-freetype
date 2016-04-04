@@ -282,6 +282,13 @@ set(HARFBUZZ_LIBRARIES
     ${HARFBUZZ_UNICODE_LIB}
     CACHE INTERNAL "Harfbuzz libraries" FORCE)
 
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  target_compile_options(harfbuzz
+    PRIVATE
+    -Wno-vla-extension
+    -Wno-extended-offsetof)
+endif()
+
 target_compile_definitions(harfbuzz PUBLIC
     PRIVATE
     -DHAVE_OT
