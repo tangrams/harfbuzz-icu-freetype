@@ -72,6 +72,9 @@
 
 cmake_minimum_required(VERSION 2.6)
 
+if(POLICY CMP0054)
+    cmake_policy(SET CMP0054 NEW)
+endif()
 
 include(CheckIncludeFile)
 
@@ -329,6 +332,11 @@ add_library(freetype
   ${BASE_SRCS}
 )
 
+if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+  set_source_files_properties(${BASE_SRCS}
+     PROPERTIES
+     COMPILE_FLAGS  "-utf-8 -wd4996 -wd4267 -wd4244")
+endif()
 
 if (BUILD_SHARED_LIBS)
   set_target_properties(freetype PROPERTIES
