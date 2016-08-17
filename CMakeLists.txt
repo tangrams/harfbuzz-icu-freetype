@@ -1,13 +1,18 @@
 cmake_minimum_required(VERSION 2.8.12)
 
+if(POLICY CMP0054)
+    cmake_policy(SET CMP0054 NEW)
+endif()
+
 option(HARFBUZZ_BUILD_ICU "Enable building of ICU" OFF)
 option(HARFBUZZ_BUILD_UCDN "Enable building of UCDN" ON)
 
 ## Freetype2 ##
 ###############
 option(WITH_ZLIB "Freetype: Enable zlib " OFF)
-option(WITH_BZip "Freetype: Enable bzip2 " OFF)
+option(WITH_BZip2 "Freetype: Enable bzip2 " OFF)
 option(WITH_HarfBuzz "Freetype: Enable harfbuzz" OFF)
+option(WITH_PNG "Freetype: Build with PNG" OFF)
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/freetype-2.6)
 
@@ -200,6 +205,12 @@ if (HARFBUZZ_BUILD_ICU)
         #-DU_HAVE_NL_LANGINFO_CODESET=0
         #-DU_TIMEZONE=0
         #-DUCONFIG_NO_TRANSLITERATION=1)
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+        target_compile_options(icucommon
+          PRIVATE
+          -wd4267
+          -wd4244)
+    endif()
 endif()
 
 if (HARFBUZZ_BUILD_ICU)
@@ -255,6 +266,12 @@ set(HARFBUZZ_SRC_FILES
 list(APPEND HARFBUZZ_SRC_FILES "${CMAKE_CURRENT_SOURCE_DIR}/config.h")
 add_library(harfbuzz ${HARFBUZZ_SRC_FILES})
 
+if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+  set_source_files_properties(${HARFBUZZ_SRC_FILES}
+     PROPERTIES
+     COMPILE_FLAGS  "-utf-8 -wd4996 -wd4267 -wd4244")
+endif()
+
 set(HARFBUZZ_INCLUDE_DIRS
     ${CMAKE_CURRENT_SOURCE_DIR}/harfbuzz/src
     ${CMAKE_CURRENT_SOURCE_DIR}/freetype-2.6/include/
@@ -281,6 +298,13 @@ set(HARFBUZZ_LIBRARIES
     freetype
     ${HARFBUZZ_UNICODE_LIB}
     CACHE INTERNAL "Harfbuzz libraries" FORCE)
+
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  target_compile_options(harfbuzz
+    PRIVATE
+    -Wno-vla-extension
+    -Wno-extended-offsetof)
+endif()
 
 target_compile_definitions(harfbuzz PUBLIC
     PRIVATE
