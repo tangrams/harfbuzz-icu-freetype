@@ -14,7 +14,7 @@ option(WITH_BZip2 "Freetype: Enable bzip2 " OFF)
 option(WITH_HarfBuzz "Freetype: Enable harfbuzz" OFF)
 option(WITH_PNG "Freetype: Build with PNG" OFF)
 
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/freetype-2.6)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/freetype)
 
 ## ICU-common ##
 ################
@@ -274,7 +274,7 @@ endif()
 
 set(HARFBUZZ_INCLUDE_DIRS
     ${CMAKE_CURRENT_SOURCE_DIR}/harfbuzz/src
-    ${CMAKE_CURRENT_SOURCE_DIR}/freetype-2.6/include/
+    ${CMAKE_CURRENT_SOURCE_DIR}/freetype/include/
     ${HARFBUZZ_UNICODE_INCLUDE}
     ${CMAKE_CURRENT_SOURCE_DIR}/
     CACHE INTERNAL "Harfbuzz include dirs" FORCE)
@@ -283,7 +283,7 @@ target_include_directories(harfbuzz
     PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/harfbuzz-generated
     ${CMAKE_CURRENT_SOURCE_DIR}/harfbuzz/src
-    ${CMAKE_CURRENT_SOURCE_DIR}/freetype-2.6/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/freetype/include
     ${HARFBUZZ_UNICODE_INCLUDE}
     PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/)
