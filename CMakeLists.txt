@@ -14,6 +14,7 @@ option(WITH_BZip2 "Freetype: Enable bzip2 " OFF)
 option(WITH_HarfBuzz "Freetype: Enable harfbuzz" OFF)
 option(WITH_PNG "Freetype: Build with PNG" OFF)
 
+set(FREETYPE_CXX_FLAGS ${HARFBUZZ_ICU_FREETYPE_CXX_FLAGS})
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/freetype-2.6)
 
 ## ICU-common ##
@@ -207,9 +208,14 @@ if (HARFBUZZ_BUILD_ICU)
         #-DUCONFIG_NO_TRANSLITERATION=1)
     if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
         target_compile_options(icucommon
-          PRIVATE
-          -wd4267
-          -wd4244)
+            PRIVATE
+            ${HARFBUZZ_ICU_FREETYPE_CXX_FLAGS}
+            -wd4267
+            -wd4244)
+    else()
+        target_compile_options(icucommon
+            PRIVATE
+            ${HARFBUZZ_ICU_FREETYPE_CXX_FLAGS})
     endif()
 endif()
 
@@ -299,12 +305,11 @@ set(HARFBUZZ_LIBRARIES
     ${HARFBUZZ_UNICODE_LIB}
     CACHE INTERNAL "Harfbuzz libraries" FORCE)
 
-if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  target_compile_options(harfbuzz
+target_compile_options(harfbuzz
     PRIVATE
+    ${HARFBUZZ_ICU_FREETYPE_CXX_FLAGS}
     -Wno-vla-extension
     -Wno-extended-offsetof)
-endif()
 
 target_compile_definitions(harfbuzz PUBLIC
     PRIVATE

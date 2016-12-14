@@ -332,6 +332,8 @@ add_library(freetype
   ${BASE_SRCS}
 )
 
+target_compile_options(freetype PRIVATE ${FREETYPE_CXX_FLAGS})
+
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
   set_source_files_properties(${BASE_SRCS}
      PROPERTIES
