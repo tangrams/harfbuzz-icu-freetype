@@ -20,6 +20,7 @@ HB_BASE_sources = \
 	hb-object-private.hh \
 	hb-open-file-private.hh \
 	hb-open-type-private.hh \
+	hb-ot-cbdt-table.hh \
 	hb-ot-cmap-table.hh \
 	hb-ot-glyf-table.hh \
 	hb-ot-head-table.hh \
@@ -78,6 +79,8 @@ HB_OT_sources = \
 	hb-ot-layout-private.hh \
 	hb-ot-map.cc \
 	hb-ot-map-private.hh \
+	hb-ot-math.cc \
+	hb-ot-math-table.hh \
 	hb-ot-shape.cc \
 	hb-ot-shape-complex-arabic.cc \
 	hb-ot-shape-complex-arabic-fallback.hh \
@@ -105,14 +108,20 @@ HB_OT_sources = \
 	hb-ot-shape-fallback-private.hh \
 	hb-ot-shape-fallback.cc \
 	hb-ot-shape-private.hh \
+	hb-ot-var.cc \
+	hb-ot-var-avar-table.hh \
+	hb-ot-var-fvar-table.hh \
+	hb-ot-var-hvar-table.hh \
 	$(NULL)
 
 HB_OT_headers = \
 	hb-ot.h \
 	hb-ot-font.h \
 	hb-ot-layout.h \
+	hb-ot-math.h \
 	hb-ot-shape.h \
 	hb-ot-tag.h \
+	hb-ot-var.h \
 	$(NULL)
 
 # Optional Sources and Headers with external deps

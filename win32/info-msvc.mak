@@ -1,6 +1,6 @@
 # NMake Makefile portion for displaying config info
 
-INC_FEATURES = Uniscribe Fallback OT
+INC_FEATURES = Fallback OT
 BUILT_TOOLS =
 BUILT_LIBRARIES = HarfBuzz
 
@@ -11,6 +11,8 @@ BUILT_TOOLS = hb-shape.exe hb-ot-shape-closure.exe
 !if "$(CAIRO_FT)" == "1"
 BUILT_TOOLS = hb-view.exe $(BUILT_TOOLS)
 !endif
+!elseif "$(ICU)" == "1"
+UNICODE_IMPL = ICU
 !else
 UNICODE_IMPL = ucdn
 !endif
@@ -23,12 +25,12 @@ INC_FEATURES = $(INC_FEATURES) FreeType
 INC_FEATURES = $(INC_FEATURES) Graphite2
 !endif
 
-!if "$(DIRECTWRITE)" == "1"
-INC_FEATURES = $(INC_FEATURES) DirectWrite
+!if "$(UNISCRIBE)" == "1"
+INC_FEATURES = $(INC_FEATURES) Uniscribe
 !endif
 
-!if "$(ICU)" == "1"
-BUILT_LIBRARIES = $(BUILT_LIBRARIES) HarfBuzz-ICU
+!if "$(DIRECTWRITE)" == "1"
+INC_FEATURES = $(INC_FEATURES) DirectWrite
 !endif
 
 !if "$(GOBJECT)" == "1"
@@ -77,9 +79,12 @@ help:
 	@echo.
 	@echo OPTION: Optional, may be any of the following, use OPTION=1 to enable;
 	@echo multiple OPTION's may be used.  If no OPTION is specified, a default
-	@echo HarfBuzz DLL is built with OpenType, fallback and Uniscribe support
+	@echo HarfBuzz DLL is built with OpenType and fallback support
 	@echo with a bundled Unicode implementation (UCDN).
 	@echo ======
+	@echo UNISCRIBE:
+	@echo Enable Uniscribe support.
+	@echo.
 	@echo DIRECTWRITE:
 	@echo Enable DirectWrite support, requires a recent enough Windows SDK.
 	@echo.
@@ -94,20 +99,20 @@ help:
 	@echo library.  Enables the build of utility programs.
 	@echo.
 	@echo ICU:
-	@echo Enable the HarfBuzz-ICU layout library, requires the International
+	@echo Enable build with ICU Unicode functions, requires the International
 	@echo Components for Unicode (ICU) libraries.
 	@echo.
 	@echo GOBJECT:
 	@echo Enable the HarfBuzz-GObject library, also implies GLib2 support,
 	@echo requires the GNOME GLib2 libraries and tools, notably the glib-mkenums
-	@echo tool script, which will require a PERL interpretor (use
+	@echo tool script, which will require a PERL interpreter (use
 	@echo PERL=^$(PATH_TO_PERL_INTERPRETOR)) if it is not already in your PATH).
 	@echo.
 	@echo INTROSPECTION:
 	@echo Enable the build of introspection files, also implies GObject/GLib2 support,
 	@echo requires the GNOME gobject-introspection libraries and tools.  You will need
 	@echo to ensure the pkg-config (.pc) files can be found for GObject-2.0 and the
-	@echo Python interpretor (that was used to build the gobject-introsoection tools)
+	@echo Python interpreter (that was used to build the gobject-introspection tools)
 	@echo can be found by setting PKG_CONFIG_PATH beforehand, and passing in PYTHON=
 	@echo ^$(PATH_TO_PYTHON_INTERPRETOR) respectively, if python.exe is not already
 	@echo in your PATH.

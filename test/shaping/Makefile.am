@@ -43,7 +43,9 @@ CLEANFILES += \
 TESTS = \
 	tests/arabic-fallback-shaping.tests \
 	tests/arabic-feature-order.tests \
+	tests/automatic-fractions.tests \
 	tests/cluster.tests \
+	tests/color-fonts.tests \
 	tests/context-matching.tests \
 	tests/cursive-positioning.tests \
 	tests/default-ignorables.tests \
@@ -61,6 +63,7 @@ TESTS = \
 	tests/spaces.tests \
 	tests/simple.tests \
 	tests/use.tests \
+	tests/use-marchen.tests \
 	tests/vertical.tests \
 	tests/zero-width-marks.tests \
 	$(NULL)

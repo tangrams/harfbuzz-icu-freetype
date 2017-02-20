@@ -254,6 +254,47 @@ parse_features (const char *name G_GNUC_UNUSED,
   return true;
 }
 
+static gboolean
+parse_variations (const char *name G_GNUC_UNUSED,
+	        const char *arg,
+	        gpointer    data,
+	        GError    **error G_GNUC_UNUSED)
+{
+  font_options_t *font_opts = (font_options_t *) data;
+  char *s = (char *) arg;
+  char *p;
+
+  font_opts->num_variations = 0;
+  g_free (font_opts->variations);
+  font_opts->variations = NULL;
+
+  if (!*s)
+    return true;
+
+  /* count the variations first, so we can allocate memory */
+  p = s;
+  do {
+    font_opts->num_variations++;
+    p = strchr (p, ',');
+    if (p)
+      p++;
+  } while (p);
+
+  font_opts->variations = (hb_variation_t *) calloc (font_opts->num_variations, sizeof (*font_opts->variations));
+
+  /* now do the actual parsing */
+  p = s;
+  font_opts->num_variations = 0;
+  while (p && *p) {
+    char *end = strchr (p, ',');
+    if (hb_variation_from_string (p, end ? end - p : -1, &font_opts->variations[font_opts->num_variations]))
+      font_opts->num_variations++;
+    p = end ? end + 1 : NULL;
+  }
+
+  return true;
+}
+
 
 void
 view_options_t::add_options (option_parser_t *parser)
@@ -270,7 +311,7 @@ view_options_t::add_options (option_parser_t *parser)
   parser->add_group (entries,
 		     "view",
 		     "View options:",
-		     "Options controlling output rendering",
+		     "Options for output rendering",
 		     this);
 }
 
@@ -299,7 +340,7 @@ shape_options_t::add_options (option_parser_t *parser)
   parser->add_group (entries,
 		     "shape",
 		     "Shape options:",
-		     "Options controlling the shaping process",
+		     "Options for the shaping process",
 		     this);
 
   const gchar *features_help = "Comma-separated list of font features\n"
@@ -346,7 +387,7 @@ shape_options_t::add_options (option_parser_t *parser)
   parser->add_group (entries2,
 		     "features",
 		     "Features options:",
-		     "Options controlling font features used",
+		     "Options for font features used",
 		     this);
 }
 
@@ -413,7 +454,30 @@ font_options_t::add_options (option_parser_t *parser)
   parser->add_group (entries,
 		     "font",
 		     "Font options:",
-		     "Options controlling the font",
+		     "Options for the font",
+		     this);
+
+  const gchar *variations_help = "Comma-separated list of font variations\n"
+    "\n"
+    "    Variations are set globally. The format for specifying variation settings\n"
+    "    follows.  All valid CSS font-variation-settings values other than 'normal'\n"
+    "    and 'inherited' are also accepted, though, not documented below.\n"
+    "\n"
+    "    The format is a tag, optionally followed by an equals sign, followed by a\n"
+    "    number. For example:\n"
+    "\n"
+    "      \"wght=500\"\n"
+    "      \"slnt=-7.5\"\n";
+
+  GOptionEntry entries2[] =
+  {
+    {"variations",	0, 0, G_OPTION_ARG_CALLBACK,	(gpointer) &parse_variations,	variations_help,	"list"},
+    {NULL}
+  };
+  parser->add_group (entries2,
+		     "variations",
+		     "Varitions options:",
+		     "Options for font variations used",
 		     this);
 }
 
@@ -431,7 +495,7 @@ text_options_t::add_options (option_parser_t *parser)
   parser->add_group (entries,
 		     "text",
 		     "Text options:",
-		     "Options controlling the input text",
+		     "Options for the input text",
 		     this);
 }
 
@@ -459,7 +523,7 @@ output_options_t::add_options (option_parser_t *parser)
   parser->add_group (entries,
 		     "output",
 		     "Output destination & format options:",
-		     "Options controlling the destination and form of the output",
+		     "Options for the destination & form of the output",
 		     this);
 }
 
@@ -560,6 +624,8 @@ font_options_t::get_font (void) const
   int scale_y = (int) scalbnf (font_size_y, subpixel_bits);
   hb_font_set_scale (font, scale_x, scale_y);
   hb_face_destroy (face);
+
+  hb_font_set_variations (font, variations, num_variations);
 
   void (*set_font_funcs) (hb_font_t *) = NULL;
   if (!font_funcs)
@@ -719,7 +785,7 @@ format_options_t::add_options (option_parser_t *parser)
          "    text: [<glyph name or index>=<glyph cluster index within input>@<horizontal displacement>,<vertical displacement>+<horizontal advance>,<vertical advance>|...]\n"
          "    json: [{\"g\": <glyph name or index>, \"ax\": <horizontal advance>, \"ay\": <vertical advance>, \"dx\": <horizontal displacement>, \"dy\": <vertical displacement>, \"cl\": <glyph cluster index within input>}, ...]\n"
          "\nOutput syntax options:",
-		     "Options controlling the syntax of the output",
+		     "Options for the syntax of the output",
 		     this);
 }
 

@@ -34,12 +34,9 @@
 #include "hb-ot-layout-gdef-table.hh"
 #include "hb-ot-layout-gsub-table.hh"
 #include "hb-ot-layout-gpos-table.hh"
-#include "hb-ot-layout-jstf-table.hh"
+#include "hb-ot-layout-jstf-table.hh" // Just so we compile it; unused otherwise.
 
 #include "hb-ot-map-private.hh"
-
-#include <stdlib.h>
-#include <string.h>
 
 
 HB_SHAPER_DATA_ENSURE_DECLARE(ot, face)
@@ -59,6 +56,10 @@ _hb_ot_layout_create (hb_face_t *face)
 
   layout->gpos_blob = OT::Sanitizer<OT::GPOS>::sanitize (face->reference_table (HB_OT_TAG_GPOS));
   layout->gpos = OT::Sanitizer<OT::GPOS>::lock_instance (layout->gpos_blob);
+
+  layout->math.init (face);
+  layout->fvar.init (face);
+  layout->avar.init (face);
 
   {
     /*
@@ -178,6 +179,10 @@ _hb_ot_layout_destroy (hb_ot_layout_t *layout)
   hb_blob_destroy (layout->gsub_blob);
   hb_blob_destroy (layout->gpos_blob);
 
+  layout->math.fini ();
+  layout->fvar.fini ();
+  layout->avar.fini ();
+
   free (layout);
 }
 
@@ -199,7 +204,6 @@ _get_gpos (hb_face_t *face)
   if (unlikely (!hb_ot_shaper_face_data_ensure (face))) return OT::Null(OT::GPOS);
   return *hb_ot_layout_from_face (face)->gpos;
 }
-
 
 /*
  * GDEF
@@ -552,10 +556,13 @@ hb_ot_layout_feature_get_lookups (hb_face_t    *face,
 				  unsigned int *lookup_count /* IN/OUT */,
 				  unsigned int *lookup_indexes /* OUT */)
 {
-  const OT::GSUBGPOS &g = get_gsubgpos_table (face, table_tag);
-  const OT::Feature &f = g.get_feature (feature_index);
-
-  return f.get_lookup_indexes (start_offset, lookup_count, lookup_indexes);
+  return hb_ot_layout_feature_with_variations_get_lookups (face,
+							   table_tag,
+							   feature_index,
+							   HB_OT_LAYOUT_NO_VARIATIONS_INDEX,
+							   start_offset,
+							   lookup_count,
+							   lookup_indexes);
 }
 
 /**
@@ -803,6 +810,38 @@ hb_ot_layout_lookup_collect_glyphs (hb_face_t    *face,
       return;
     }
   }
+}
+
+
+/* Variations support */
+
+hb_bool_t
+hb_ot_layout_table_find_feature_variations (hb_face_t    *face,
+					    hb_tag_t      table_tag,
+					    const int    *coords,
+					    unsigned int  num_coords,
+					    unsigned int *variations_index /* out */)
+{
+  const OT::GSUBGPOS &g = get_gsubgpos_table (face, table_tag);
+
+  return g.find_variations_index (coords, num_coords, variations_index);
+}
+
+unsigned int
+hb_ot_layout_feature_with_variations_get_lookups (hb_face_t    *face,
+						  hb_tag_t      table_tag,
+						  unsigned int  feature_index,
+						  unsigned int  variations_index,
+						  unsigned int  start_offset,
+						  unsigned int *lookup_count /* IN/OUT */,
+						  unsigned int *lookup_indexes /* OUT */)
+{
+  ASSERT_STATIC (OT::FeatureVariations::NOT_FOUND_INDEX == HB_OT_LAYOUT_NO_VARIATIONS_INDEX);
+  const OT::GSUBGPOS &g = get_gsubgpos_table (face, table_tag);
+
+  const OT::Feature &f = g.get_feature_variation (feature_index, variations_index);
+
+  return f.get_lookup_indexes (start_offset, lookup_count, lookup_indexes);
 }
 
 
