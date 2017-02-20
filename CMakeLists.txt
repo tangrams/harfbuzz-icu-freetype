@@ -261,7 +261,7 @@ set(HARFBUZZ_SRC_FILES
     harfbuzz/src/hb-ot-shape-complex-use-table.cc
     harfbuzz/src/hb-ot-shape-normalize.cc
     harfbuzz/src/hb-ot-shape-fallback.cc
-    )
+    harfbuzz/src/hb-ot-var.cc)
 
 list(APPEND HARFBUZZ_SRC_FILES "${CMAKE_CURRENT_SOURCE_DIR}/config.h")
 add_library(harfbuzz ${HARFBUZZ_SRC_FILES})
