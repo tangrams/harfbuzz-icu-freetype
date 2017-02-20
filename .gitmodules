@@ -1,3 +1,0 @@
-[submodule "harfbuzz"]
-	path = harfbuzz
-	url = https://github.com/behdad/harfbuzz.git
