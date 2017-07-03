@@ -36,9 +36,12 @@ HB_DEFINES =
 HB_CFLAGS = /DHAVE_CONFIG_H
 HB_UCDN_CFLAGS = /I..\src\hb-ucdn
 HB_SOURCES =	\
-	$(HB_BASE_sources)		\
-	$(HB_FALLBACK_sources)	\
-	$(HB_OT_sources)
+	$(HB_BASE_sources)			\
+	$(HB_BASE_RAGEL_GENERATED_sources)	\
+	$(HB_FALLBACK_sources)			\
+	$(HB_OT_sources)			\
+	$(HB_OT_RAGEL_GENERATED_sources)
+
 
 HB_HEADERS =	\
 	$(HB_BASE_headers)		\
@@ -129,6 +132,16 @@ HB_HEADERS = $(HB_HEADERS) $(HB_GRAPHITE2_headers)
 HB_DEP_LIBS = $(HB_DEP_LIBS) $(GRAPHITE2_LIB)
 !endif
 
+# Always enable UCDN unless explicitly disabled
+!if "$(NO_UCDN)" != "1"
+HB_DEFINES = $(HB_DEFINES) /DHAVE_UCDN=1
+HB_CFLAGS =		\
+	$(HB_CFLAGS)		\
+	$(HB_UCDN_CFLAGS)
+
+HB_SOURCES = $(HB_SOURCES) $(hb_ucdn_SRCS) $(HB_UCDN_sources)
+!endif
+
 # Enable GLib if desired
 !if "$(GLIB)" == "1"
 HB_DEFINES = $(HB_DEFINES) /DHAVE_GLIB=1
@@ -164,16 +177,23 @@ HB_TESTS = \
 	$(CFG)\$(PLAT)\test-unicode.exe				\
 	$(CFG)\$(PLAT)\test-version.exe
 
-!elseif "$(ICU)" == "1"
+!else
+
+# Define some of the macros in GLib's msvc_recommended_pragmas.h
+# to reduce some unneeded build-time warnings
+HB_CFLAGS =	\
+	$(HB_CFLAGS)			\
+	/wd4244				\
+	/D_CRT_SECURE_NO_WARNINGS	\
+	/D_CRT_NONSTDC_NO_WARNINGS
+
+!endif
+
+!if "$(ICU)" == "1"
 # use ICU for Unicode functions
 # and define some of the macros in GLib's msvc_recommended_pragmas.h
 # to reduce some unneeded build-time warnings
 HB_DEFINES = $(HB_DEFINES) /DHAVE_ICU=1 /DHAVE_ICU_BUILTIN=1
-HB_CFLAGS =	\
-	$(HB_CFLAGS)					\
-	/wd4244							\
-	/D_CRT_SECURE_NO_WARNINGS		\
-	/D_CRT_NONSTDC_NO_WARNINGS
 
 # We don't want ICU to re-define int8_t in VS 2008, will cause build breakage
 # as we define it in hb-common.h, and we ought to use the definitions there.
@@ -184,20 +204,6 @@ HB_CFLAGS =	$(HB_CFLAGS) /DU_HAVE_INT8_T
 HB_SOURCES = $(HB_SOURCES) $(HB_ICU_sources)
 HB_HEADERS = $(HB_HEADERS) $(HB_ICU_headers)
 HB_DEP_LIBS = $(HB_DEP_LIBS) $(HB_ICU_DEP_LIBS)
-!endif
-
-!if "$(UCDN)" != "0"
-# Define some of the macros in GLib's msvc_recommended_pragmas.h
-# to reduce some unneeded build-time warnings
-HB_DEFINES = $(HB_DEFINES) /DHAVE_UCDN=1
-HB_CFLAGS =	\
-	$(HB_CFLAGS)					\
-	$(HB_UCDN_CFLAGS)				\
-	/wd4244							\
-	/D_CRT_SECURE_NO_WARNINGS		\
-	/D_CRT_NONSTDC_NO_WARNINGS
-
-HB_SOURCES = $(HB_SOURCES) $(LIBHB_UCDN_sources) $(HB_UCDN_sources)
 !endif
 
 !if "$(UNISCRIBE)" == "1"
