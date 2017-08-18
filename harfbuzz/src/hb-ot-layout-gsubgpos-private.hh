@@ -319,7 +319,7 @@ struct hb_apply_context_t :
       if (!c->check_glyph_property (&info, lookup_props))
 	return SKIP_YES;
 
-      if (unlikely (_hb_glyph_info_is_default_ignorable_and_not_fvs (&info) &&
+      if (unlikely (_hb_glyph_info_is_default_ignorable_and_not_hidden (&info) &&
 		    (ignore_zwnj || !_hb_glyph_info_is_zwnj (&info)) &&
 		    (ignore_zwj || !_hb_glyph_info_is_zwj (&info))))
 	return SKIP_MAYBE;
@@ -342,13 +342,13 @@ struct hb_apply_context_t :
     inline void init (hb_apply_context_t *c_, bool context_match = false)
     {
       c = c_;
-      match_glyph_data = NULL,
+      match_glyph_data = NULL;
       matcher.set_match_func (NULL, NULL);
       matcher.set_lookup_props (c->lookup_props);
       /* Ignore ZWNJ if we are matching GSUB context, or matching GPOS. */
-      matcher.set_ignore_zwnj (context_match || c->table_index == 1);
+      matcher.set_ignore_zwnj (c->table_index == 1 || (context_match && c->auto_zwnj));
       /* Ignore ZWJ if we are matching GSUB context, or matching GPOS, or if asked to. */
-      matcher.set_ignore_zwj (context_match || c->table_index == 1 || c->auto_zwj);
+      matcher.set_ignore_zwj  (c->table_index == 1 || (context_match || c->auto_zwj));
       matcher.set_mask (context_match ? -1 : c->lookup_mask);
     }
     inline void set_lookup_props (unsigned int lookup_props)
@@ -457,45 +457,50 @@ struct hb_apply_context_t :
     return ret;
   }
 
-  unsigned int table_index; /* GSUB/GPOS */
+  skipping_iterator_t iter_input, iter_context;
+
   hb_font_t *font;
   hb_face_t *face;
   hb_buffer_t *buffer;
+  recurse_func_t recurse_func;
+  const GDEF &gdef;
+  const VariationStore &var_store;
+
   hb_direction_t direction;
   hb_mask_t lookup_mask;
-  bool auto_zwj;
-  recurse_func_t recurse_func;
-  unsigned int nesting_level_left;
-  unsigned int lookup_props;
-  const GDEF &gdef;
-  bool has_glyph_classes;
-  const VariationStore &var_store;
-  skipping_iterator_t iter_input, iter_context;
+  unsigned int table_index; /* GSUB/GPOS */
   unsigned int lookup_index;
+  unsigned int lookup_props;
+  unsigned int nesting_level_left;
   unsigned int debug_depth;
+
+  bool auto_zwnj;
+  bool auto_zwj;
+  bool has_glyph_classes;
 
 
   hb_apply_context_t (unsigned int table_index_,
 		      hb_font_t *font_,
 		      hb_buffer_t *buffer_) :
-			table_index (table_index_),
+			iter_input (), iter_context (),
 			font (font_), face (font->face), buffer (buffer_),
+			recurse_func (NULL),
+			gdef (*hb_ot_layout_from_face (face)->gdef),
+			var_store (gdef.get_var_store ()),
 			direction (buffer_->props.direction),
 			lookup_mask (1),
-			auto_zwj (true),
-			recurse_func (NULL),
-			nesting_level_left (HB_MAX_NESTING_LEVEL),
-			lookup_props (0),
-			gdef (*hb_ot_layout_from_face (face)->gdef),
-			has_glyph_classes (gdef.has_glyph_classes ()),
-			var_store (gdef.get_var_store ()),
-			iter_input (),
-			iter_context (),
+			table_index (table_index_),
 			lookup_index ((unsigned int) -1),
-			debug_depth (0) {}
+			lookup_props (0),
+			nesting_level_left (HB_MAX_NESTING_LEVEL),
+			debug_depth (0),
+			auto_zwnj (true),
+			auto_zwj (true),
+			has_glyph_classes (gdef.has_glyph_classes ()) {}
 
   inline void set_lookup_mask (hb_mask_t mask) { lookup_mask = mask; }
   inline void set_auto_zwj (bool auto_zwj_) { auto_zwj = auto_zwj_; }
+  inline void set_auto_zwnj (bool auto_zwnj_) { auto_zwnj = auto_zwnj_; }
   inline void set_recurse_func (recurse_func_t func) { recurse_func = func; }
   inline void set_lookup_index (unsigned int lookup_index_) { lookup_index = lookup_index_; }
   inline void set_lookup_props (unsigned int lookup_props_)
@@ -959,7 +964,7 @@ static inline bool apply_lookup (hb_apply_context_t *c,
   TRACE_APPLY (NULL);
 
   hb_buffer_t *buffer = c->buffer;
-  unsigned int end;
+  int end;
 
   /* All positions are distance from beginning of *output* buffer.
    * Adjust. */
@@ -996,10 +1001,32 @@ static inline bool apply_lookup (hb_apply_context_t *c,
     if (!delta)
         continue;
 
-    /* Recursed lookup changed buffer len.  Adjust. */
+    /* Recursed lookup changed buffer len.  Adjust.
+     *
+     * TODO:
+     *
+     * Right now, if buffer length increased by n, we assume n new glyphs
+     * were added right after the current position, and if buffer length
+     * was decreased by n, we assume n match positions after the current
+     * one where removed.  The former (buffer length increased) case is
+     * fine, but the decrease case can be improved in at least two ways,
+     * both of which are significant:
+     *
+     *   - If recursed-to lookup is MultipleSubst and buffer length
+     *     decreased, then it's current match position that was deleted,
+     *     NOT the one after it.
+     *
+     *   - If buffer length was decreased by n, it does not necessarily
+     *     mean that n match positions where removed, as there might
+     *     have been marks and default-ignorables in the sequence.  We
+     *     should instead drop match positions between current-position
+     *     and current-position + n instead.
+     *
+     * It should be possible to construct tests for both of these cases.
+     */
 
-    end = int (end) + delta;
-    if (end <= match_positions[idx])
+    end += delta;
+    if (end <= int (match_positions[idx]))
     {
       /* End might end up being smaller than match_positions[idx] if the recursed
        * lookup ended up removing many items, more than we have had matched.
