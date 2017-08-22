@@ -213,6 +213,9 @@ if (HARFBUZZ_BUILD_ICU)
     endif()
 endif()
 
+# Apple Advanced Typography
+set(HARFBUZZ_CORETEXT_DEFINE -DHAVE_CORETEXT)
+
 if (HARFBUZZ_BUILD_ICU)
     set(HARFBUZZ_UNICODE_SRC harfbuzz/src/hb-ucdn.cc)
     set(HARFBUZZ_UNICODE_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/icu/common)
@@ -261,7 +264,8 @@ set(HARFBUZZ_SRC_FILES
     harfbuzz/src/hb-ot-shape-complex-use-table.cc
     harfbuzz/src/hb-ot-shape-normalize.cc
     harfbuzz/src/hb-ot-shape-fallback.cc
-    harfbuzz/src/hb-ot-var.cc)
+    harfbuzz/src/hb-ot-var.cc
+    harfbuzz/src/hb-coretext.cc)
 
 list(APPEND HARFBUZZ_SRC_FILES "${CMAKE_CURRENT_SOURCE_DIR}/config.h")
 add_library(harfbuzz ${HARFBUZZ_SRC_FILES})
@@ -289,6 +293,7 @@ target_include_directories(harfbuzz
     ${CMAKE_CURRENT_SOURCE_DIR}/)
 
 option(USE_INTEL_ATOMIC_PRIMITIVES "Platform needs to define HAVE_INTEL_ATOMIC_PRIMITIVES" FALSE)
+option(HB_HAVE_CORETEXT "Enable CoreText shaper backend on macOS" ON)
 
 if(USE_INTEL_ATOMIC_PRIMITIVES)
     add_definitions(-DHAVE_INTEL_ATOMIC_PRIMITIVES)
@@ -312,5 +317,6 @@ target_compile_definitions(harfbuzz PUBLIC
     # Provide own config file
     -DHAVE_CONFIG_H
     ${HARFBUZZ_UNICODE_DEFINE}
+    ${HARFBUZZ_CORETEXT_DEFINE}
     -DHB_NO_MT)
 
