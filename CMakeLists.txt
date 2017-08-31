@@ -213,9 +213,6 @@ if (HARFBUZZ_BUILD_ICU)
     endif()
 endif()
 
-# Apple Advanced Typography
-set(HARFBUZZ_CORETEXT_DEFINE -DHAVE_CORETEXT)
-
 if (HARFBUZZ_BUILD_ICU)
     set(HARFBUZZ_UNICODE_SRC harfbuzz/src/hb-ucdn.cc)
     set(HARFBUZZ_UNICODE_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/icu/common)
@@ -231,6 +228,11 @@ endif()
 
 ## Harfbuzz ##
 ##############
+
+if (APPLE)
+    option(HB_HAVE_CORETEXT "Enable CoreText shaper backend on macOS" ON)
+endif ()
+
 set(HARFBUZZ_SRC_FILES
     ${HARFBUZZ_UNICODE_SRC}
     harfbuzz/src/hb-ucdn/ucdn.c
@@ -264,8 +266,21 @@ set(HARFBUZZ_SRC_FILES
     harfbuzz/src/hb-ot-shape-complex-use-table.cc
     harfbuzz/src/hb-ot-shape-normalize.cc
     harfbuzz/src/hb-ot-shape-fallback.cc
-    harfbuzz/src/hb-ot-var.cc
-    harfbuzz/src/hb-coretext.cc)
+    harfbuzz/src/hb-ot-var.cc)
+
+if(APPLE AND HB_HAVE_CORETEXT)
+    # Apple Advanced Typography
+      add_definitions(-DHAVE_CORETEXT)
+
+    list(APPEND HARFBUZZ_SRC_FILES harfbuzz/src/hb-coretext.cc)
+
+    find_library(APPLICATION_SERVICES_FRAMEWORK ApplicationServices)
+    if (APPLICATION_SERVICES_FRAMEWORK)
+        list(APPEND THIRD_PARTY_LIBS ${APPLICATION_SERVICES_FRAMEWORK})
+    endif (APPLICATION_SERVICES_FRAMEWORK)
+
+    mark_as_advanced(APPLICATION_SERVICES_FRAMEWORK)
+endif()
 
 list(APPEND HARFBUZZ_SRC_FILES "${CMAKE_CURRENT_SOURCE_DIR}/config.h")
 add_library(harfbuzz ${HARFBUZZ_SRC_FILES})
@@ -293,7 +308,6 @@ target_include_directories(harfbuzz
     ${CMAKE_CURRENT_SOURCE_DIR}/)
 
 option(USE_INTEL_ATOMIC_PRIMITIVES "Platform needs to define HAVE_INTEL_ATOMIC_PRIMITIVES" FALSE)
-option(HB_HAVE_CORETEXT "Enable CoreText shaper backend on macOS" ON)
 
 if(USE_INTEL_ATOMIC_PRIMITIVES)
     add_definitions(-DHAVE_INTEL_ATOMIC_PRIMITIVES)
