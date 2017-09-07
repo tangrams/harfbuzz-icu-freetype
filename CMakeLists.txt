@@ -274,16 +274,30 @@ if(APPLE AND HB_HAVE_CORETEXT)
 
     list(APPEND HARFBUZZ_SRC_FILES harfbuzz/src/hb-coretext.cc)
 
+    # APPLICATION_SERVICES_FRAMEWORK needed for osx
     find_library(APPLICATION_SERVICES_FRAMEWORK ApplicationServices)
     if (APPLICATION_SERVICES_FRAMEWORK)
         list(APPEND THIRD_PARTY_LIBS ${APPLICATION_SERVICES_FRAMEWORK})
     endif (APPLICATION_SERVICES_FRAMEWORK)
+
+    # CORE_TEXT needed for ios
+    find_library(CORE_TEXT CoreText)
+    if (CORE_TEXT)
+        list(APPEND THIRD_PARTY_LIBS ${CORE_TEXT})
+    endif (CORE_TEXT)
+
+    # CORE_GRAPHICS needed for ios
+    find_library(CORE_GRAPHICS CoreGraphics)
+    if (CORE_GRAPHICS)
+        list(APPEND THIRD_PARTY_LIBS ${CORE_GRAPHICS})
+    endif (CORE_GRAPHICS)
 
     mark_as_advanced(APPLICATION_SERVICES_FRAMEWORK)
 endif()
 
 list(APPEND HARFBUZZ_SRC_FILES "${CMAKE_CURRENT_SOURCE_DIR}/config.h")
 add_library(harfbuzz ${HARFBUZZ_SRC_FILES})
+target_link_libraries(harfbuzz ${THIRD_PARTY_LIBS})
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
   set_source_files_properties(${HARFBUZZ_SRC_FILES}
