@@ -6,6 +6,9 @@ endif()
 
 option(HARFBUZZ_BUILD_ICU "Enable building of ICU" OFF)
 option(HARFBUZZ_BUILD_UCDN "Enable building of UCDN" ON)
+if (APPLE)
+    option(HB_HAVE_CORETEXT "Enable CoreText shaper backend on macOS" ON)
+endif ()
 
 ## Freetype2 ##
 ###############
@@ -228,6 +231,7 @@ endif()
 
 ## Harfbuzz ##
 ##############
+
 set(HARFBUZZ_SRC_FILES
     ${HARFBUZZ_UNICODE_SRC}
     harfbuzz/src/hb-ucdn/ucdn.c
@@ -263,8 +267,34 @@ set(HARFBUZZ_SRC_FILES
     harfbuzz/src/hb-ot-shape-fallback.cc
     harfbuzz/src/hb-ot-var.cc)
 
+if(APPLE AND HB_HAVE_CORETEXT)
+    # Apple Advanced Typography
+      add_definitions(-DHAVE_CORETEXT)
+
+    list(APPEND HARFBUZZ_SRC_FILES harfbuzz/src/hb-coretext.cc)
+
+    # APPLICATION_SERVICES_FRAMEWORK needed for osx
+    find_library(APPLICATION_SERVICES_FRAMEWORK ApplicationServices)
+    if (APPLICATION_SERVICES_FRAMEWORK)
+        list(APPEND THIRD_PARTY_LIBS ${APPLICATION_SERVICES_FRAMEWORK})
+    endif (APPLICATION_SERVICES_FRAMEWORK)
+
+    # CORE_TEXT needed for ios
+    find_library(CORE_TEXT CoreText)
+    if (CORE_TEXT)
+        list(APPEND THIRD_PARTY_LIBS ${CORE_TEXT})
+    endif (CORE_TEXT)
+
+    # CORE_GRAPHICS needed for ios
+    find_library(CORE_GRAPHICS CoreGraphics)
+    if (CORE_GRAPHICS)
+        list(APPEND THIRD_PARTY_LIBS ${CORE_GRAPHICS})
+    endif (CORE_GRAPHICS)
+endif()
+
 list(APPEND HARFBUZZ_SRC_FILES "${CMAKE_CURRENT_SOURCE_DIR}/config.h")
 add_library(harfbuzz ${HARFBUZZ_SRC_FILES})
+target_link_libraries(harfbuzz ${THIRD_PARTY_LIBS})
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
   set_source_files_properties(${HARFBUZZ_SRC_FILES}
@@ -312,5 +342,6 @@ target_compile_definitions(harfbuzz PUBLIC
     # Provide own config file
     -DHAVE_CONFIG_H
     ${HARFBUZZ_UNICODE_DEFINE}
+    ${HARFBUZZ_CORETEXT_DEFINE}
     -DHB_NO_MT)
 
