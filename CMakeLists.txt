@@ -6,6 +6,9 @@ endif()
 
 option(HARFBUZZ_BUILD_ICU "Enable building of ICU" OFF)
 option(HARFBUZZ_BUILD_UCDN "Enable building of UCDN" ON)
+if (APPLE)
+    option(HB_HAVE_CORETEXT "Enable CoreText shaper backend on macOS" ON)
+endif ()
 
 ## Freetype2 ##
 ###############
@@ -229,10 +232,6 @@ endif()
 ## Harfbuzz ##
 ##############
 
-if (APPLE)
-    option(HB_HAVE_CORETEXT "Enable CoreText shaper backend on macOS" ON)
-endif ()
-
 set(HARFBUZZ_SRC_FILES
     ${HARFBUZZ_UNICODE_SRC}
     harfbuzz/src/hb-ucdn/ucdn.c
@@ -291,8 +290,6 @@ if(APPLE AND HB_HAVE_CORETEXT)
     if (CORE_GRAPHICS)
         list(APPEND THIRD_PARTY_LIBS ${CORE_GRAPHICS})
     endif (CORE_GRAPHICS)
-
-    mark_as_advanced(APPLICATION_SERVICES_FRAMEWORK)
 endif()
 
 list(APPEND HARFBUZZ_SRC_FILES "${CMAKE_CURRENT_SOURCE_DIR}/config.h")
