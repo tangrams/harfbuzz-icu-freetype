@@ -269,27 +269,30 @@ set(HARFBUZZ_SRC_FILES
 
 if(APPLE AND HB_HAVE_CORETEXT)
     # Apple Advanced Typography
-      add_definitions(-DHAVE_CORETEXT)
+    add_definitions(-DHAVE_CORETEXT)
 
     list(APPEND HARFBUZZ_SRC_FILES harfbuzz/src/hb-coretext.cc)
 
-    # APPLICATION_SERVICES_FRAMEWORK needed for osx
-    find_library(APPLICATION_SERVICES_FRAMEWORK ApplicationServices)
-    if (APPLICATION_SERVICES_FRAMEWORK)
-        list(APPEND THIRD_PARTY_LIBS ${APPLICATION_SERVICES_FRAMEWORK})
-    endif (APPLICATION_SERVICES_FRAMEWORK)
+    if (IOS)
+        # CORE_TEXT needed for ios
+        find_library(CORE_TEXT CoreText)
+        if (CORE_TEXT)
+            list(APPEND THIRD_PARTY_LIBS ${CORE_TEXT})
+        endif (CORE_TEXT)
 
-    # CORE_TEXT needed for ios
-    find_library(CORE_TEXT CoreText)
-    if (CORE_TEXT)
-        list(APPEND THIRD_PARTY_LIBS ${CORE_TEXT})
-    endif (CORE_TEXT)
+        # CORE_GRAPHICS needed for ios
+        find_library(CORE_GRAPHICS CoreGraphics)
+        if (CORE_GRAPHICS)
+            list(APPEND THIRD_PARTY_LIBS ${CORE_GRAPHICS})
+        endif (CORE_GRAPHICS)
+    else(IOS)
+        # APPLICATION_SERVICES_FRAMEWORK needed for osx
+        find_library(APPLICATION_SERVICES_FRAMEWORK ApplicationServices)
+        if (APPLICATION_SERVICES_FRAMEWORK)
+            list(APPEND THIRD_PARTY_LIBS ${APPLICATION_SERVICES_FRAMEWORK})
+        endif (APPLICATION_SERVICES_FRAMEWORK)
+    endif(IOS)
 
-    # CORE_GRAPHICS needed for ios
-    find_library(CORE_GRAPHICS CoreGraphics)
-    if (CORE_GRAPHICS)
-        list(APPEND THIRD_PARTY_LIBS ${CORE_GRAPHICS})
-    endif (CORE_GRAPHICS)
 endif()
 
 list(APPEND HARFBUZZ_SRC_FILES "${CMAKE_CURRENT_SOURCE_DIR}/config.h")
