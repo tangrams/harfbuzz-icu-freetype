@@ -2,3 +2,6 @@
 	path = harfbuzz
 	url = https://github.com/behdad/harfbuzz
 	shallow = true
+[submodule "freetype"]
+	path = freetype
+	url = https://git.savannah.nongnu.org/git/freetype/freetype2.git
