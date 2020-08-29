@@ -5,3 +5,6 @@
 [submodule "freetype"]
 	path = freetype
 	url = https://git.savannah.nongnu.org/git/freetype/freetype2.git
+[submodule "icu"]
+	path = icu
+	url = https://github.com/unicode-org/icu.git
