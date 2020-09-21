@@ -10,12 +10,16 @@ if (APPLE)
     option(HB_HAVE_CORETEXT "Enable CoreText shaper backend on macOS" ON)
 endif ()
 
+set(SKIP_INSTALL_ALL ON)
+
 ## Freetype2 ##
 ###############
-option(WITH_ZLIB "Freetype: Enable zlib " OFF)
-option(WITH_BZip2 "Freetype: Enable bzip2 " OFF)
-option(WITH_HarfBuzz "Freetype: Enable harfbuzz" OFF)
-option(WITH_PNG "Freetype: Build with PNG" OFF)
+
+#set(CMAKE_DISABLE_FIND_PACKAGE_ZLIB TRUE)
+#set(CMAKE_DISABLE_FIND_PACKAGE_BZip2 TRUE)
+#set(CMAKE_DISABLE_FIND_PACKAGE_PNG TRUE)
+set(CMAKE_DISABLE_FIND_PACKAGE_HarfBuzz TRUE)
+set(CMAKE_DISABLE_FIND_PACKAGE_BrotliDec TRUE)
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/freetype)
 
