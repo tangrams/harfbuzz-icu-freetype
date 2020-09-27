@@ -1,12 +1,14 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 ******************************************************************************
 *
-*   Copyright (C) 1999-2013, International Business Machines
+*   Copyright (C) 1999-2014, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
 *   file name:  unames.c
-*   encoding:   US-ASCII
+*   encoding:   UTF-8
 *   tab size:   8 (not used)
 *   indentation:4
 *
@@ -32,8 +34,6 @@
 U_NAMESPACE_BEGIN
 
 /* prototypes ------------------------------------------------------------- */
-
-#define LENGTHOF(array) (int32_t)(sizeof(array)/sizeof((array)[0]))
 
 static const char DATA_NAME[] = "unames";
 static const char DATA_TYPE[] = "icu";
@@ -212,13 +212,13 @@ isDataLoaded(UErrorCode *pErrorCode) {
     return U_SUCCESS(*pErrorCode);
 }
 
-#define WRITE_CHAR(buffer, bufferLength, bufferPos, c) { \
+#define WRITE_CHAR(buffer, bufferLength, bufferPos, c) UPRV_BLOCK_MACRO_BEGIN { \
     if((bufferLength)>0) { \
         *(buffer)++=c; \
         --(bufferLength); \
     } \
     ++(bufferPos); \
-}
+} UPRV_BLOCK_MACRO_END
 
 #define U_ISO_COMMENT U_CHAR_NAME_CHOICE_COUNT
 
@@ -438,7 +438,7 @@ static const char *getCharCatName(UChar32 cp) {
     /* Return unknown if the table of names above is not up to
        date. */
 
-    if (cat >= LENGTHOF(charCatNames)) {
+    if (cat >= UPRV_LENGTHOF(charCatNames)) {
         return "unknown";
     } else {
         return charCatNames[cat];
@@ -466,7 +466,7 @@ static uint16_t getExtName(uint32_t code, char *buffer, uint16_t bufferLength) {
         buffer[--i] = (v < 10 ? '0' + v : 'A' + v - 10);
     }
     buffer += ndigits;
-    length += ndigits;
+    length += static_cast<uint16_t>(ndigits);
     WRITE_CHAR(buffer, bufferLength, length, '>');
 
     return length;
@@ -1277,7 +1277,7 @@ static int32_t
 calcExtNameSetsLengths(int32_t maxNameLength) {
     int32_t i, length;
 
-    for(i=0; i<LENGTHOF(charCatNames); ++i) {
+    for(i=0; i<UPRV_LENGTHOF(charCatNames); ++i) {
         /*
          * for each category, count the length of the category name
          * plus 9=
@@ -1440,13 +1440,17 @@ calcNameSetsLengths(UErrorCode *pErrorCode) {
     return TRUE;
 }
 
+U_NAMESPACE_END
+
 /* public API --------------------------------------------------------------- */
+
+U_NAMESPACE_USE
 
 U_CAPI int32_t U_EXPORT2
 u_charName(UChar32 code, UCharNameChoice nameChoice,
            char *buffer, int32_t bufferLength,
            UErrorCode *pErrorCode) {
-    AlgorithmicRange *algRange;
+     AlgorithmicRange *algRange;
     uint32_t *p;
     uint32_t i;
     int32_t length;
@@ -1515,14 +1519,15 @@ U_CAPI UChar32 U_EXPORT2
 u_charFromName(UCharNameChoice nameChoice,
                const char *name,
                UErrorCode *pErrorCode) {
-    char upper[120], lower[120];
+    char upper[120] = {0};
+    char lower[120] = {0};
     FindName findName;
     AlgorithmicRange *algRange;
     uint32_t *p;
     uint32_t i;
     UChar32 cp = 0;
     char c0;
-    UChar32 error = 0xffff;     /* Undefined, but use this for backwards compatibility. */
+    static constexpr UChar32 error = 0xffff;     /* Undefined, but use this for backwards compatibility. */
 
     if(pErrorCode==NULL || U_FAILURE(*pErrorCode)) {
         return error;
@@ -1552,42 +1557,49 @@ u_charFromName(UCharNameChoice nameChoice,
         *pErrorCode = U_ILLEGAL_CHAR_FOUND;
         return error;
     }
+    // i==strlen(name)==strlen(lower)==strlen(upper)
 
     /* try extended names first */
     if (lower[0] == '<') {
-        if (nameChoice == U_EXTENDED_CHAR_NAME) {
-            if (lower[--i] == '>') {
-                for (--i; lower[i] && lower[i] != '-'; --i) {
+        if (nameChoice == U_EXTENDED_CHAR_NAME && lower[--i] == '>') {
+            // Parse a string like "<category-HHHH>" where HHHH is a hex code point.
+            uint32_t limit = i;
+            while (i >= 3 && lower[--i] != '-') {}
+
+            // There should be 1 to 8 hex digits.
+            int32_t hexLength = limit - (i + 1);
+            if (i >= 2 && lower[i] == '-' && 1 <= hexLength && hexLength <= 8) {
+                uint32_t cIdx;
+
+                lower[i] = 0;
+
+                for (++i; i < limit; ++i) {
+                    if (lower[i] >= '0' && lower[i] <= '9') {
+                        cp = (cp << 4) + lower[i] - '0';
+                    } else if (lower[i] >= 'a' && lower[i] <= 'f') {
+                        cp = (cp << 4) + lower[i] - 'a' + 10;
+                    } else {
+                        *pErrorCode = U_ILLEGAL_CHAR_FOUND;
+                        return error;
+                    }
+                    // Prevent signed-integer overflow and out-of-range code points.
+                    if (cp > UCHAR_MAX_VALUE) {
+                        *pErrorCode = U_ILLEGAL_CHAR_FOUND;
+                        return error;
+                    }
                 }
 
-                if (lower[i] == '-') { /* We've got a category. */
-                    uint32_t cIdx;
+                /* Now validate the category name.
+                   We could use a binary search, or a trie, if
+                   we really wanted to. */
+                uint8_t cat = getCharCat(cp);
+                for (lower[i] = 0, cIdx = 0; cIdx < UPRV_LENGTHOF(charCatNames); ++cIdx) {
 
-                    lower[i] = 0;
-
-                    for (++i; lower[i] != '>'; ++i) {
-                        if (lower[i] >= '0' && lower[i] <= '9') {
-                            cp = (cp << 4) + lower[i] - '0';
-                        } else if (lower[i] >= 'a' && lower[i] <= 'f') {
-                            cp = (cp << 4) + lower[i] - 'a' + 10;
-                        } else {
-                            *pErrorCode = U_ILLEGAL_CHAR_FOUND;
-                            return error;
+                    if (!uprv_strcmp(lower + 1, charCatNames[cIdx])) {
+                        if (cat == cIdx) {
+                            return cp;
                         }
-                    }
-
-                    /* Now validate the category name.
-                       We could use a binary search, or a trie, if
-                       we really wanted to. */
-
-                    for (lower[i] = 0, cIdx = 0; cIdx < LENGTHOF(charCatNames); ++cIdx) {
-
-                        if (!uprv_strcmp(lower + 1, charCatNames[cIdx])) {
-                            if (getCharCat(cp) == cIdx) {
-                                return cp;
-                            }
-                            break;
-                        }
+                        break;
                     }
                 }
             }
@@ -2085,8 +2097,6 @@ uchar_swapNames(const UDataSwapper *ds,
 
     return headerSize+(int32_t)offset;
 }
-
-U_NAMESPACE_END
 
 /*
  * Hey, Emacs, please set the following:
