@@ -3,9 +3,6 @@
 set -x
 set -o errexit -o nounset
 
-BRANCH="$TRAVIS_BRANCH"
-if test "x$BRANCH" != xmaster; then exit; fi
-
 TAG="$(git describe --exact-match --match "[0-9]*" HEAD 2>/dev/null || true)"
 
 DOCSDIR=build-docs
@@ -15,8 +12,8 @@ rm -rf $DOCSDIR || exit
 mkdir $DOCSDIR
 cd $DOCSDIR
 
-cp ../docs/html/* .
-#cp ../docs/CNAME .
+cp ../build/docs/html/* .
+#cp ../build/docs/CNAME .
 
 git init
 git config user.name "Travis CI"
@@ -30,5 +27,8 @@ git reset upstream/master
 
 touch .
 git add -A .
-git commit -m "Rebuild docs for https://github.com/harfbuzz/harfbuzz/commit/$REVISION"
-git push -q upstream HEAD:master
+
+if [[ $(git status -s) ]]; then
+  git commit -m "Rebuild docs for https://github.com/harfbuzz/harfbuzz/commit/$REVISION"
+  git push -q upstream HEAD:master
+fi

@@ -9,11 +9,39 @@ SUBDIRS = src util test docs
 EXTRA_DIST = \
 	autogen.sh \
 	harfbuzz.doap \
-	README.python \
+	README.md \
+	README.python.md \
 	BUILD.md \
+	CONFIG.md \
 	RELEASING.md \
+	TESTING.md \
 	CMakeLists.txt \
 	replace-enum-strings.cmake \
+	meson.build \
+	meson_options.txt \
+	subprojects/expat.wrap \
+	subprojects/fontconfig.wrap \
+	subprojects/freetype2.wrap \
+	subprojects/glib.wrap \
+	subprojects/libffi.wrap \
+	subprojects/proxy-libintl.wrap \
+	subprojects/zlib.wrap \
+	subprojects/google-benchmark.wrap \
+	perf/meson.build \
+	perf/perf-draw.hh \
+	perf/perf-extents.hh \
+	perf/perf-shaping.hh \
+	perf/perf.cc \
+	perf/fonts/Amiri-Regular.ttf \
+	perf/fonts/NotoNastaliqUrdu-Regular.ttf \
+	perf/fonts/NotoSansDevanagari-Regular.ttf \
+	perf/fonts/Roboto-Regular.ttf \
+	perf/texts/en-thelittleprince.txt \
+	perf/texts/en-words.txt \
+	perf/texts/fa-monologue.txt \
+	perf/texts/fa-thelittleprince.txt \
+	meson-cc-tests/intel-atomic-primitives-test.c \
+	meson-cc-tests/solaris-atomic-operations.c \
 	$(NULL)
 
 MAINTAINERCLEANFILES = \
@@ -35,7 +63,7 @@ ChangeLog: $(srcdir)/ChangeLog
 $(srcdir)/ChangeLog:
 	$(AM_V_GEN) if test -d "$(top_srcdir)/.git"; then \
 	  (GIT_DIR=$(top_srcdir)/.git \
-	   $(GIT) log $(CHANGELOG_RANGE) --stat) | fmt --split-only > $@.tmp \
+	   $(GIT) log $(CHANGELOG_RANGE) --stat) > $@.tmp \
 	  && mv -f $@.tmp "$(srcdir)/ChangeLog" \
 	  || ($(RM) $@.tmp; \
 	      echo Failed to generate ChangeLog, your ChangeLog may be outdated >&2; \
@@ -59,8 +87,6 @@ DISTCHECK_CONFIGURE_FLAGS = \
 	--enable-introspection \
 	$(NULL)
 
-# TODO: Copy infrastructure from cairo
-
 # TAR_OPTIONS is not set as env var for 'make dist'.  How to fix that?
 TAR_OPTIONS = --owner=0 --group=0
 
@@ -68,18 +94,5 @@ dist-hook: dist-clear-sticky-bits
 # Clean up any sticky bits we may inherit from parent dir
 dist-clear-sticky-bits:
 	chmod -R a-s $(distdir)
-
-
-tar_file = $(PACKAGE_TARNAME)-$(VERSION).tar.bz2
-sha256_file = $(tar_file).sha256
-gpg_file = $(sha256_file).asc
-$(sha256_file): $(tar_file)
-	sha256sum $^ > $@
-$(gpg_file): $(sha256_file)
-	@echo "Please enter your GPG password to sign the checksum."
-	gpg --armor --sign $^
-
-release-files: $(tar_file) $(sha256_file) $(gpg_file)
-
 
 -include $(top_srcdir)/git.mk

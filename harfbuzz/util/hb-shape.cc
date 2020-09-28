@@ -72,6 +72,8 @@ struct output_buffer_t
       flags |= HB_BUFFER_SERIALIZE_FLAG_NO_CLUSTERS;
     if (!format.show_positions)
       flags |= HB_BUFFER_SERIALIZE_FLAG_NO_POSITIONS;
+    if (!format.show_advances)
+      flags |= HB_BUFFER_SERIALIZE_FLAG_NO_ADVANCES;
     if (format.show_extents)
       flags |= HB_BUFFER_SERIALIZE_FLAG_GLYPH_EXTENTS;
     if (format.show_flags)
@@ -81,10 +83,7 @@ struct output_buffer_t
     if (format.trace)
       hb_buffer_set_message_func (buffer, message_func, this, nullptr);
   }
-  void new_line (void)
-  {
-    line_no++;
-  }
+  void new_line () { line_no++; }
   void consume_text (hb_buffer_t  *buffer,
 		     const char   *text,
 		     unsigned int  text_len,
@@ -158,6 +157,37 @@ struct output_buffer_t
 int
 main (int argc, char **argv)
 {
+  if (argc == 2 && !strcmp (argv[1], "--batch"))
+  {
+    unsigned int ret = 0;
+    char buf[4092];
+    while (fgets (buf, sizeof (buf), stdin))
+    {
+      size_t l = strlen (buf);
+      if (l && buf[l - 1] == '\n') buf[l - 1] = '\0';
+      main_font_text_t<shape_consumer_t<output_buffer_t>, FONT_SIZE_UPEM, 0> driver;
+      char *args[32];
+      argc = 0;
+      char *p = buf, *e;
+      args[argc++] = p;
+      unsigned start_offset = 0;
+      while ((e = strchr (p + start_offset, ':')) && argc < (int) ARRAY_LENGTH (args))
+      {
+	*e++ = '\0';
+	while (*e == ':')
+	  e++;
+	args[argc++] = p = e;
+	/* Skip 2 first bytes on first argument if is Windows path, "C:\..." */
+	start_offset = argc == 2 && p[0] != '\0' && p[0] != ':' && p[1] == ':' && (p[2] == '\\' || p[2] == '/') ? 2 : 0;
+      }
+      ret |= driver.main (argc, args);
+      fflush (stdout);
+
+      if (ret)
+	break;
+    }
+    return ret;
+  }
   main_font_text_t<shape_consumer_t<output_buffer_t>, FONT_SIZE_UPEM, 0> driver;
   return driver.main (argc, argv);
 }
