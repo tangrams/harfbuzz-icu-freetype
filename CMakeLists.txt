@@ -5,7 +5,6 @@ if(POLICY CMP0054)
 endif()
 
 option(HARFBUZZ_BUILD_ICU "Enable building of ICU" OFF)
-option(HARFBUZZ_BUILD_UCDN "Enable building of UCDN" ON)
 if (APPLE)
     option(HB_HAVE_CORETEXT "Enable CoreText shaper backend on macOS" ON)
 endif ()
@@ -246,108 +245,109 @@ if (HARFBUZZ_BUILD_ICU)
     endif()
 endif()
 
-if (HARFBUZZ_BUILD_ICU)
-    set(HARFBUZZ_UNICODE_SRC harfbuzz/src/hb-ucdn.cc)
-    set(HARFBUZZ_UNICODE_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/icu/common)
-    set(HARFBUZZ_UNICODE_LIB icucommon)
-    set(HARFBUZZ_UNICODE_DEFINE -DHAVE_ICU -DHAVE_ICU_BUILTIN)
-endif()
-
-if (HARFBUZZ_BUILD_UCDN)
-    set(HARFBUZZ_UNICODE_SRC harfbuzz/src/hb-ft.cc)
-    set(HARFBUZZ_UNICODE_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/harfbuzz/src/hb-ucdn/)
-    set(HARFBUZZ_UNICODE_DEFINE -DHAVE_UCDN)
-endif()
 
 ## Harfbuzz ##
 ##############
 
-set(HARFBUZZ_SRC_FILES
-    ${HARFBUZZ_UNICODE_SRC}
-    harfbuzz/src/hb-ucdn/ucdn.c
-    harfbuzz/src/hb-ucdn.cc
+add_library(harfbuzz
+    harfbuzz/src/hb-aat-layout.cc
+    harfbuzz/src/hb-aat-map.cc
     harfbuzz/src/hb-blob.cc
+    harfbuzz/src/hb-buffer-serialize.cc
     harfbuzz/src/hb-buffer.cc
     harfbuzz/src/hb-common.cc
+    harfbuzz/src/hb-draw.cc
     harfbuzz/src/hb-face.cc
+    harfbuzz/src/hb-fallback-shape.cc
     harfbuzz/src/hb-font.cc
-    harfbuzz/src/hb-set.cc
-    harfbuzz/src/hb-shape.cc
-    harfbuzz/src/hb-shape-plan.cc
-    harfbuzz/src/hb-shaper.cc
-    harfbuzz/src/hb-unicode.cc
-    harfbuzz/src/hb-warning.cc
-    harfbuzz/src/hb-ot-tag.cc
+    harfbuzz/src/hb-map.cc
+    harfbuzz/src/hb-number.cc
+    harfbuzz/src/hb-ot-cff1-table.cc
+    harfbuzz/src/hb-ot-cff2-table.cc
+    harfbuzz/src/hb-ot-color.cc
+    harfbuzz/src/hb-ot-face.cc
     harfbuzz/src/hb-ot-font.cc
     harfbuzz/src/hb-ot-layout.cc
     harfbuzz/src/hb-ot-map.cc
-    harfbuzz/src/hb-ot-shape.cc
+    harfbuzz/src/hb-ot-math.cc
+    harfbuzz/src/hb-ot-meta.cc
+    harfbuzz/src/hb-ot-metrics.cc
+    harfbuzz/src/hb-ot-name.cc
     harfbuzz/src/hb-ot-shape-complex-arabic.cc
     harfbuzz/src/hb-ot-shape-complex-default.cc
     harfbuzz/src/hb-ot-shape-complex-hangul.cc
     harfbuzz/src/hb-ot-shape-complex-hebrew.cc
-    harfbuzz/src/hb-ot-shape-complex-indic.cc
     harfbuzz/src/hb-ot-shape-complex-indic-table.cc
+    harfbuzz/src/hb-ot-shape-complex-indic.cc
+    harfbuzz/src/hb-ot-shape-complex-khmer.cc
     harfbuzz/src/hb-ot-shape-complex-myanmar.cc
     harfbuzz/src/hb-ot-shape-complex-thai.cc
-    harfbuzz/src/hb-ot-shape-complex-tibetan.cc
-    harfbuzz/src/hb-ot-shape-complex-use.cc
     harfbuzz/src/hb-ot-shape-complex-use-table.cc
-    harfbuzz/src/hb-ot-shape-normalize.cc
+    harfbuzz/src/hb-ot-shape-complex-use.cc
+    harfbuzz/src/hb-ot-shape-complex-vowel-constraints.cc
     harfbuzz/src/hb-ot-shape-fallback.cc
-    harfbuzz/src/hb-ot-var.cc)
+    harfbuzz/src/hb-ot-shape-normalize.cc
+    harfbuzz/src/hb-ot-shape.cc
+    harfbuzz/src/hb-ot-tag.cc
+    harfbuzz/src/hb-ot-var.cc
+    harfbuzz/src/hb-set.cc
+    harfbuzz/src/hb-shape-plan.cc
+    harfbuzz/src/hb-shape.cc
+    harfbuzz/src/hb-shaper.cc
+    harfbuzz/src/hb-static.cc
+    harfbuzz/src/hb-style.cc
+    harfbuzz/src/hb-ucd.cc
+    harfbuzz/src/hb-unicode.cc
+    )
 
+# FreeType integration
+target_sources(harfbuzz PRIVATE harfbuzz/src/hb-ft.cc)
+target_include_directories(harfbuzz PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/freetype/include)
+target_compile_definitions(harfbuzz PRIVATE -DHAVE_FREETYPE)
+
+# ICU integration
+if (HARFBUZZ_BUILD_ICU)
+    target_sources(harfbuzz PRIVATE harfbuzz/src/hb-icu.cc)
+    target_include_directories(harfbuzz PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/icu/common)
+    target_link_libraries(harfbuzz icucommon)
+    target_compile_definitions(harfbuzz PRIVATE -DHAVE_ICU -DHAVE_ICU_BUILTIN)
+    set(HARFBUZZ_UNICODE_LIB icucommon)
+endif()
+
+# CoreText integration
 if(APPLE AND HB_HAVE_CORETEXT)
-    # Apple Advanced Typography
-    add_definitions(-DHAVE_CORETEXT)
-
-    list(APPEND HARFBUZZ_SRC_FILES harfbuzz/src/hb-coretext.cc)
+    target_compile_definitions(harfbuzz PRIVATE -DHAVE_CORETEXT)
+    target_sources(harfbuzz PRIVATE harfbuzz/src/hb-coretext.cc)
 
     if (IOS)
         # CORE_TEXT needed for ios
         find_library(CORE_TEXT CoreText)
         if (CORE_TEXT)
-            list(APPEND THIRD_PARTY_LIBS ${CORE_TEXT})
+            target_link_libraries(harfbuzz ${CORE_TEXT})
         endif (CORE_TEXT)
 
         # CORE_GRAPHICS needed for ios
         find_library(CORE_GRAPHICS CoreGraphics)
         if (CORE_GRAPHICS)
-            list(APPEND THIRD_PARTY_LIBS ${CORE_GRAPHICS})
+            target_link_libraries(harfbuzz ${CORE_GRAPHICS})
         endif (CORE_GRAPHICS)
     else(IOS)
         # APPLICATION_SERVICES_FRAMEWORK needed for osx
         find_library(APPLICATION_SERVICES_FRAMEWORK ApplicationServices)
         if (APPLICATION_SERVICES_FRAMEWORK)
-            list(APPEND THIRD_PARTY_LIBS ${APPLICATION_SERVICES_FRAMEWORK})
+            target_link_libraries(harfbuzz ${APPLICATION_SERVICES_FRAMEWORK})
         endif (APPLICATION_SERVICES_FRAMEWORK)
     endif(IOS)
 
 endif()
 
-list(APPEND HARFBUZZ_SRC_FILES "${CMAKE_CURRENT_SOURCE_DIR}/config.h")
-add_library(harfbuzz ${HARFBUZZ_SRC_FILES})
-target_link_libraries(harfbuzz ${THIRD_PARTY_LIBS})
-
-if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-  set_source_files_properties(${HARFBUZZ_SRC_FILES}
-     PROPERTIES
-     COMPILE_FLAGS  "-utf-8 -wd4996 -wd4267 -wd4244")
-endif()
-
-set(HARFBUZZ_INCLUDE_DIRS
-    ${CMAKE_CURRENT_SOURCE_DIR}/harfbuzz/src
-    ${CMAKE_CURRENT_SOURCE_DIR}/freetype/include/
-    ${HARFBUZZ_UNICODE_INCLUDE}
-    ${CMAKE_CURRENT_SOURCE_DIR}/
-    CACHE INTERNAL "Harfbuzz include dirs" FORCE)
+# Provide own config file
+target_sources(harfbuzz PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/config.h")
+target_compile_definitions(harfbuzz PRIVATE -DHAVE_CONFIG_H)
 
 target_include_directories(harfbuzz
     PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/harfbuzz-generated
     ${CMAKE_CURRENT_SOURCE_DIR}/harfbuzz/src
-    ${CMAKE_CURRENT_SOURCE_DIR}/freetype/include
-    ${HARFBUZZ_UNICODE_INCLUDE}
     PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/)
 
@@ -362,6 +362,10 @@ set(HARFBUZZ_LIBRARIES
     ${HARFBUZZ_UNICODE_LIB}
     CACHE INTERNAL "Harfbuzz libraries" FORCE)
 
+if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+  target_compile_options(harfbuzz PRIVATE -utf-8 -wd4996 -wd4267 -wd4244)
+endif()
+
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   target_compile_options(harfbuzz
     PRIVATE
@@ -371,10 +375,8 @@ endif()
 
 target_compile_definitions(harfbuzz PUBLIC
     PRIVATE
-    -DHAVE_OT
-    # Provide own config file
-    -DHAVE_CONFIG_H
-    ${HARFBUZZ_UNICODE_DEFINE}
-    ${HARFBUZZ_CORETEXT_DEFINE}
-    -DHB_NO_MT)
+    -DHAVE_OT # Include the default "ot" shaper
+    -DHB_NO_MT # Exclude multi-threading support
+    )
 
+set_target_properties(harfbuzz PROPERTIES CXX_STANDARD 11)
