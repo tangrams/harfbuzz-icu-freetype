@@ -363,14 +363,17 @@ set(HARFBUZZ_LIBRARIES
     CACHE INTERNAL "Harfbuzz libraries" FORCE)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-  target_compile_options(harfbuzz PRIVATE -utf-8 -wd4996 -wd4267 -wd4244)
+    target_compile_options(harfbuzz PRIVATE -utf-8 -wd4996 -wd4267 -wd4244)
 endif()
 
-if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  target_compile_options(harfbuzz
-    PRIVATE
-    -Wno-vla-extension
-    -Wno-extended-offsetof)
+if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    # Apply compiler flags from Harfbuzz CMake config.
+    target_compile_options(harfbuzz
+        PRIVATE
+        -fno-rtti
+        -fno-exceptions
+        -fno-threadsafe-statics
+    )
 endif()
 
 target_compile_definitions(harfbuzz PUBLIC
