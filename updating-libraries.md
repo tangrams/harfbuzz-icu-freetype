@@ -1,28 +1,21 @@
 # Updating harfbuzz
 
-## Update subtree
-1. Add harfbuzz as remote to your local repo
-```bash
-git remote add <remote name> https://github.com/behdad/harfbuzz
-```
-2. Update harfbuzz to appropriate release tag
-```bash
-git subtree pull --prefix=harfbuzz --squash <remote name> <release tag>
-```
-## Update harfbuzz-generated
-1. Build harfbuzz to get generate shape file information
-```bash
-cd harfbuzz
-NOCONFIGURE=1 ./autogen.sh
-./configure --with-freetype --with-icu
-make
-```
-2. compare and copy generated files in `harfbuzz-generated`
+- Get the latest release source code from: https://github.com/behdad/harfbuzz
+
+- Remove the `tests` folder (it contains a large amount of font data that isn't useful for this repo).
+
+- Update the Harfbuzz section of [CMakeLists.txt](CMakeLists.txt) for any new or moved source files. Also check the Harfbuzz [CMakeLists.txt](harfbuzz/CMakeLists.txt) for new compile definitions and flags.
 
 # Updating ICU
 
-We update `ICU` project from the main ICU source page directly: http://source.icu-project.org/repos/icu/
+- Get the latest release source code from: https://github.com/unicode-org/icu
+
+- Take only the `source/common` and `source/stubdata` folders and copy them into `icu/`.
+
+- Update the ICU section of [CMakeLists.txt](CMakeLists.txt) for any new or moved source files.
 
 # Updating Freetype
 
-We update `Freetype` project from the main Freetype source page directly: https://www.freetype.org/download.html
+- Get the latest release source code from: https://www.freetype.org/download.html
+
+- That's it!
