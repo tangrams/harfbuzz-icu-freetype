@@ -20,6 +20,14 @@ set(CMAKE_DISABLE_FIND_PACKAGE_BZip2 TRUE)
 # Stop Freetype from trying to link Harfbuzz, since we will link our own version.
 set(CMAKE_DISABLE_FIND_PACKAGE_HarfBuzz TRUE)
 
+if (IOS)
+    # Freetype relies on check_include_file() to detect Unix headers, but some versions of CMake fail to find these files on iOS.
+    # We know these files exist on iOS, so just force the variables to be set.
+    set(HAVE_UNISTD_H 1 CACHE INTERNAL "Have include unistd.h" FORCE)
+    set(HAVE_FCNTL_H 1 CACHE INTERNAL "Have include fcntl.h" FORCE)
+    set(HAVE_STDINT_H 1 CACHE INTERNAL "Have include stdint.h" FORCE)
+endif()
+
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/freetype)
 
 ## ICU-common ##
