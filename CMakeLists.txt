@@ -14,11 +14,11 @@ set(SKIP_INSTALL_ALL ON)
 ## Freetype2 ##
 ###############
 
-#set(CMAKE_DISABLE_FIND_PACKAGE_ZLIB TRUE)
-#set(CMAKE_DISABLE_FIND_PACKAGE_BZip2 TRUE)
-#set(CMAKE_DISABLE_FIND_PACKAGE_PNG TRUE)
+# Stop Freetype from trying to link BZip2. For unclear reasons, BZip2 causes linker errors when targeting iOS simulator.
+set(CMAKE_DISABLE_FIND_PACKAGE_BZip2 TRUE)
+
+# Stop Freetype from trying to link Harfbuzz, since we will link our own version.
 set(CMAKE_DISABLE_FIND_PACKAGE_HarfBuzz TRUE)
-set(CMAKE_DISABLE_FIND_PACKAGE_BrotliDec TRUE)
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/freetype)
 
