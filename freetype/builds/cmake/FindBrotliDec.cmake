@@ -19,6 +19,8 @@
 #   BROTLIDEC_INCLUDE_DIRS
 #   BROTLIDEC_LIBRARIES
 
+set(FPHSA_NAME_MISMATCHED 1) # Disables a warning about the package variable name not matching this file name.
+
 include(FindPkgConfig)
 pkg_check_modules(PC_BROTLIDEC QUIET libbrotlidec)
 
@@ -49,3 +51,5 @@ find_package_handle_standard_args(
 mark_as_advanced(
   BROTLIDEC_INCLUDE_DIRS
   BROTLIDEC_LIBRARIES)
+
+unset(FPHSA_NAME_MISMATCHED)
