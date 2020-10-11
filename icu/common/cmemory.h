@@ -1,7 +1,9 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 ******************************************************************************
 *
-*   Copyright (C) 1997-2012, International Business Machines
+*   Copyright (C) 1997-2016, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -34,33 +36,21 @@
 #include <stdio.h>
 #endif
 
-#if U_DEBUG
-
-/*
- * The C++ standard requires that the source pointer for memcpy() & memmove()
- * is valid, not NULL, and not at the end of an allocated memory block.
- * In debug mode, we read one byte from the source point to verify that it's
- * a valid, readable pointer.
- */
-
-U_CAPI void uprv_checkValidMemory(const void *p, size_t n);
-
-#define uprv_memcpy(dst, src, size) ( \
-    uprv_checkValidMemory(src, 1), \
-    U_STANDARD_CPP_NAMESPACE memcpy(dst, src, size))
-#define uprv_memmove(dst, src, size) ( \
-    uprv_checkValidMemory(src, 1), \
-    U_STANDARD_CPP_NAMESPACE memmove(dst, src, size))
-
-#else
 
 #define uprv_memcpy(dst, src, size) U_STANDARD_CPP_NAMESPACE memcpy(dst, src, size)
 #define uprv_memmove(dst, src, size) U_STANDARD_CPP_NAMESPACE memmove(dst, src, size)
 
-#endif  /* U_DEBUG */
-
+/**
+ * \def UPRV_LENGTHOF
+ * Convenience macro to determine the length of a fixed array at compile-time.
+ * @param array A fixed length array
+ * @return The length of the array, in elements
+ * @internal
+ */
+#define UPRV_LENGTHOF(array) (int32_t)(sizeof(array)/sizeof((array)[0]))
 #define uprv_memset(buffer, mark, size) U_STANDARD_CPP_NAMESPACE memset(buffer, mark, size)
 #define uprv_memcmp(buffer1, buffer2, size) U_STANDARD_CPP_NAMESPACE memcmp(buffer1, buffer2,size)
+#define uprv_memchr(ptr, value, num) U_STANDARD_CPP_NAMESPACE memchr(ptr, value, num)
 
 U_CAPI void * U_EXPORT2
 uprv_malloc(size_t s) U_MALLOC_ATTR U_ALLOC_SIZE_ATTR(1);
@@ -75,44 +65,36 @@ U_CAPI void * U_EXPORT2
 uprv_calloc(size_t num, size_t size) U_MALLOC_ATTR U_ALLOC_SIZE_ATTR2(1,2);
 
 /**
- * This should align the memory properly on any machine.
- * This is very useful for the safeClone functions.
- */
-typedef union {
-    long    t1;
-    double  t2;
-    void   *t3;
-} UAlignedMemory;
-
-/**
  * Get the least significant bits of a pointer (a memory address).
  * For example, with a mask of 3, the macro gets the 2 least significant bits,
  * which will be 0 if the pointer is 32-bit (4-byte) aligned.
  *
- * ptrdiff_t is the most appropriate integer type to cast to.
- * size_t should work too, since on most (or all?) platforms it has the same
- * width as ptrdiff_t.
+ * uintptr_t is the most appropriate integer type to cast to.
  */
-#define U_POINTER_MASK_LSB(ptr, mask) (((ptrdiff_t)(char *)(ptr)) & (mask))
+#define U_POINTER_MASK_LSB(ptr, mask) ((uintptr_t)(ptr) & (mask))
 
 /**
- * Get the amount of bytes that a pointer is off by from
- * the previous UAlignedMemory-aligned pointer.
+ * Create & return an instance of "type" in statically allocated storage.
+ * e.g.
+ *    static std::mutex *myMutex = STATIC_NEW(std::mutex);
+ * To destroy an object created in this way, invoke the destructor explicitly, e.g.
+ *    myMutex->~mutex();
+ * DO NOT use delete.
+ * DO NOT use with class UMutex, which has specific support for static instances.
+ *
+ * STATIC_NEW is intended for use when
+ *   - We want a static (or global) object.
+ *   - We don't want it to ever be destructed, or to explicitly control destruction,
+ *     to avoid use-after-destruction problems.
+ *   - We want to avoid an ordinary heap allocated object,
+ *     to avoid the possibility of memory allocation failures, and
+ *     to avoid memory leak reports, from valgrind, for example.
+ * This is defined as a macro rather than a template function because each invocation
+ * must define distinct static storage for the object being returned.
  */
-#define U_ALIGNMENT_OFFSET(ptr) U_POINTER_MASK_LSB(ptr, sizeof(UAlignedMemory) - 1)
-
-/**
- * Get the amount of bytes to add to a pointer
- * in order to get the next UAlignedMemory-aligned address.
- */
-#define U_ALIGNMENT_OFFSET_UP(ptr) (sizeof(UAlignedMemory) - U_ALIGNMENT_OFFSET(ptr))
-
-/**
-  *  Indicate whether the ICU allocation functions have been used.
-  *  This is used to determine whether ICU is in an initial, unused state.
-  */
-U_CFUNC UBool 
-cmemory_inUse(void);
+#define STATIC_NEW(type) [] () { \
+    alignas(type) static char storage[sizeof(type)]; \
+    return new(storage) type();} ()
 
 /**
   *  Heap clean up function, called from u_cleanup()
@@ -140,6 +122,9 @@ uprv_deleteUObject(void *obj);
 
 #ifdef __cplusplus
 
+#include <utility>
+#include "unicode/uobject.h"
+
 U_NAMESPACE_BEGIN
 
 /**
@@ -152,16 +137,54 @@ U_NAMESPACE_BEGIN
 template<typename T>
 class LocalMemory : public LocalPointerBase<T> {
 public:
+    using LocalPointerBase<T>::operator*;
+    using LocalPointerBase<T>::operator->;
     /**
      * Constructor takes ownership.
      * @param p simple pointer to an array of T items that is adopted
      */
     explicit LocalMemory(T *p=NULL) : LocalPointerBase<T>(p) {}
     /**
+     * Move constructor, leaves src with isNull().
+     * @param src source smart pointer
+     */
+    LocalMemory(LocalMemory<T> &&src) U_NOEXCEPT : LocalPointerBase<T>(src.ptr) {
+        src.ptr=NULL;
+    }
+    /**
      * Destructor deletes the memory it owns.
      */
     ~LocalMemory() {
         uprv_free(LocalPointerBase<T>::ptr);
+    }
+    /**
+     * Move assignment operator, leaves src with isNull().
+     * The behavior is undefined if *this and src are the same object.
+     * @param src source smart pointer
+     * @return *this
+     */
+    LocalMemory<T> &operator=(LocalMemory<T> &&src) U_NOEXCEPT {
+        uprv_free(LocalPointerBase<T>::ptr);
+        LocalPointerBase<T>::ptr=src.ptr;
+        src.ptr=NULL;
+        return *this;
+    }
+    /**
+     * Swap pointers.
+     * @param other other smart pointer
+     */
+    void swap(LocalMemory<T> &other) U_NOEXCEPT {
+        T *temp=LocalPointerBase<T>::ptr;
+        LocalPointerBase<T>::ptr=other.ptr;
+        other.ptr=temp;
+    }
+    /**
+     * Non-member LocalMemory swap function.
+     * @param p1 will get p2's pointer
+     * @param p2 will get p1's pointer
+     */
+    friend inline void swap(LocalMemory<T> &p1, LocalMemory<T> &p2) U_NOEXCEPT {
+        p1.swap(p2);
     }
     /**
      * Deletes the array it owns,
@@ -227,7 +250,7 @@ inline T *LocalMemory<T>::allocateInsteadAndCopy(int32_t newCapacity, int32_t le
                 if(length>newCapacity) {
                     length=newCapacity;
                 }
-                uprv_memcpy(p, LocalPointerBase<T>::ptr, length*sizeof(T));
+                uprv_memcpy(p, LocalPointerBase<T>::ptr, (size_t)length*sizeof(T));
             }
             uprv_free(LocalPointerBase<T>::ptr);
             LocalPointerBase<T>::ptr=p;
@@ -248,18 +271,48 @@ inline T *LocalMemory<T>::allocateInsteadAndCopy(int32_t newCapacity, int32_t le
  *
  * Unlike LocalMemory and LocalArray, this class never adopts
  * (takes ownership of) another array.
+ *
+ * WARNING: MaybeStackArray only works with primitive (plain-old data) types.
+ * It does NOT know how to call a destructor! If you work with classes with
+ * destructors, consider:
+ *
+ * - LocalArray in localpointer.h if you know the length ahead of time
+ * - MaybeStackVector if you know the length at runtime
  */
 template<typename T, int32_t stackCapacity>
 class MaybeStackArray {
 public:
+    // No heap allocation. Use only on the stack.
+    static void* U_EXPORT2 operator new(size_t) U_NOEXCEPT = delete;
+    static void* U_EXPORT2 operator new[](size_t) U_NOEXCEPT = delete;
+#if U_HAVE_PLACEMENT_NEW
+    static void* U_EXPORT2 operator new(size_t, void*) U_NOEXCEPT = delete;
+#endif
+
     /**
      * Default constructor initializes with internal T[stackCapacity] buffer.
      */
     MaybeStackArray() : ptr(stackArray), capacity(stackCapacity), needToRelease(FALSE) {}
     /**
+     * Automatically allocates the heap array if the argument is larger than the stack capacity.
+     * Intended for use when an approximate capacity is known at compile time but the true
+     * capacity is not known until runtime.
+     */
+    MaybeStackArray(int32_t newCapacity) : MaybeStackArray() {
+        if (capacity < newCapacity) { resize(newCapacity); }
+    }
+    /**
      * Destructor deletes the array (if owned).
      */
     ~MaybeStackArray() { releaseArray(); }
+    /**
+     * Move constructor: transfers ownership or copies the stack array.
+     */
+    MaybeStackArray(MaybeStackArray<T, stackCapacity> &&src) U_NOEXCEPT;
+    /**
+     * Move assignment: transfers ownership or copies the stack array.
+     */
+    MaybeStackArray<T, stackCapacity> &operator=(MaybeStackArray<T, stackCapacity> &&src) U_NOEXCEPT;
     /**
      * Returns the array capacity (number of T items).
      * @return array capacity
@@ -337,27 +390,46 @@ private:
             uprv_free(ptr);
         }
     }
+    void resetToStackArray() {
+        ptr=stackArray;
+        capacity=stackCapacity;
+        needToRelease=FALSE;
+    }
     /* No comparison operators with other MaybeStackArray's. */
     bool operator==(const MaybeStackArray & /*other*/) {return FALSE;}
     bool operator!=(const MaybeStackArray & /*other*/) {return TRUE;}
     /* No ownership transfer: No copy constructor, no assignment operator. */
     MaybeStackArray(const MaybeStackArray & /*other*/) {}
     void operator=(const MaybeStackArray & /*other*/) {}
-
-    // No heap allocation. Use only on the stack.
-    //   (Declaring these functions private triggers a cascade of problems:
-    //      MSVC insists on exporting an instantiation of MaybeStackArray, which
-    //      requires that all functions be defined.
-    //      An empty implementation of new() is rejected, it must return a value.
-    //      Returning NULL is rejected by gcc for operator new.
-    //      The expedient thing is just not to override operator new.
-    //      While relatively pointless, heap allocated instances will function.
-    // static void * U_EXPORT2 operator new(size_t size); 
-    // static void * U_EXPORT2 operator new[](size_t size);
-#if U_HAVE_PLACEMENT_NEW
-    // static void * U_EXPORT2 operator new(size_t, void *ptr);
-#endif
 };
+
+template<typename T, int32_t stackCapacity>
+icu::MaybeStackArray<T, stackCapacity>::MaybeStackArray(
+        MaybeStackArray <T, stackCapacity>&& src) U_NOEXCEPT
+        : ptr(src.ptr), capacity(src.capacity), needToRelease(src.needToRelease) {
+    if (src.ptr == src.stackArray) {
+        ptr = stackArray;
+        uprv_memcpy(stackArray, src.stackArray, sizeof(T) * src.capacity);
+    } else {
+        src.resetToStackArray();  // take ownership away from src
+    }
+}
+
+template<typename T, int32_t stackCapacity>
+inline MaybeStackArray <T, stackCapacity>&
+MaybeStackArray<T, stackCapacity>::operator=(MaybeStackArray <T, stackCapacity>&& src) U_NOEXCEPT {
+    releaseArray();  // in case this instance had its own memory allocated
+    capacity = src.capacity;
+    needToRelease = src.needToRelease;
+    if (src.ptr == src.stackArray) {
+        ptr = stackArray;
+        uprv_memcpy(stackArray, src.stackArray, sizeof(T) * src.capacity);
+    } else {
+        ptr = src.ptr;
+        src.resetToStackArray();  // take ownership away from src
+    }
+    return *this;
+}
 
 template<typename T, int32_t stackCapacity>
 inline T *MaybeStackArray<T, stackCapacity>::resize(int32_t newCapacity, int32_t length) {
@@ -374,7 +446,7 @@ inline T *MaybeStackArray<T, stackCapacity>::resize(int32_t newCapacity, int32_t
                 if(length>newCapacity) {
                     length=newCapacity;
                 }
-                uprv_memcpy(p, ptr, length*sizeof(T));
+                uprv_memcpy(p, ptr, (size_t)length*sizeof(T));
             }
             releaseArray();
             ptr=p;
@@ -405,12 +477,10 @@ inline T *MaybeStackArray<T, stackCapacity>::orphanOrClone(int32_t length, int32
         if(p==NULL) {
             return NULL;
         }
-        uprv_memcpy(p, ptr, length*sizeof(T));
+        uprv_memcpy(p, ptr, (size_t)length*sizeof(T));
     }
     resultCapacity=length;
-    ptr=stackArray;
-    capacity=stackCapacity;
-    needToRelease=FALSE;
+    resetToStackArray();
     return p;
 }
 
@@ -427,6 +497,13 @@ inline T *MaybeStackArray<T, stackCapacity>::orphanOrClone(int32_t length, int32
 template<typename H, typename T, int32_t stackCapacity>
 class MaybeStackHeaderAndArray {
 public:
+    // No heap allocation. Use only on the stack.
+    static void* U_EXPORT2 operator new(size_t) U_NOEXCEPT = delete;
+    static void* U_EXPORT2 operator new[](size_t) U_NOEXCEPT = delete;
+#if U_HAVE_PLACEMENT_NEW
+    static void* U_EXPORT2 operator new(size_t, void*) U_NOEXCEPT = delete;
+#endif
+
     /**
      * Default constructor initializes with internal H+T[stackCapacity] buffer.
      */
@@ -523,15 +600,6 @@ private:
     /* No ownership transfer: No copy constructor, no assignment operator. */
     MaybeStackHeaderAndArray(const MaybeStackHeaderAndArray & /*other*/) {}
     void operator=(const MaybeStackHeaderAndArray & /*other*/) {}
-
-    // No heap allocation. Use only on the stack.
-    //   (Declaring these functions private triggers a cascade of problems;
-    //    see the MaybeStackArray class for details.)
-    // static void * U_EXPORT2 operator new(size_t size); 
-    // static void * U_EXPORT2 operator new[](size_t size);
-#if U_HAVE_PLACEMENT_NEW
-    // static void * U_EXPORT2 operator new(size_t, void *ptr);
-#endif
 };
 
 template<typename H, typename T, int32_t stackCapacity>
@@ -553,7 +621,7 @@ inline H *MaybeStackHeaderAndArray<H, T, stackCapacity>::resize(int32_t newCapac
                     length=newCapacity;
                 }
             }
-            uprv_memcpy(p, ptr, sizeof(H)+length*sizeof(T));
+            uprv_memcpy(p, ptr, sizeof(H)+(size_t)length*sizeof(T));
             releaseMemory();
             ptr=p;
             capacity=newCapacity;
@@ -584,7 +652,7 @@ inline H *MaybeStackHeaderAndArray<H, T, stackCapacity>::orphanOrClone(int32_t l
         if(p==NULL) {
             return NULL;
         }
-        uprv_memcpy(p, ptr, sizeof(H)+length*sizeof(T));
+        uprv_memcpy(p, ptr, sizeof(H)+(size_t)length*sizeof(T));
     }
     resultCapacity=length;
     ptr=&stackHeader;
@@ -592,6 +660,159 @@ inline H *MaybeStackHeaderAndArray<H, T, stackCapacity>::orphanOrClone(int32_t l
     needToRelease=FALSE;
     return p;
 }
+
+/**
+ * A simple memory management class that creates new heap allocated objects (of
+ * any class that has a public constructor), keeps track of them and eventually
+ * deletes them all in its own destructor.
+ *
+ * A typical use-case would be code like this:
+ *
+ *     MemoryPool<MyType> pool;
+ *
+ *     MyType* o1 = pool.create();
+ *     if (o1 != nullptr) {
+ *         foo(o1);
+ *     }
+ *
+ *     MyType* o2 = pool.create(1, 2, 3);
+ *     if (o2 != nullptr) {
+ *         bar(o2);
+ *     }
+ *
+ *     // MemoryPool will take care of deleting the MyType objects.
+ *
+ * It doesn't do anything more than that, and is intentionally kept minimalist.
+ */
+template<typename T, int32_t stackCapacity = 8>
+class MemoryPool : public UMemory {
+public:
+    MemoryPool() : fCount(0), fPool() {}
+
+    ~MemoryPool() {
+        for (int32_t i = 0; i < fCount; ++i) {
+            delete fPool[i];
+        }
+    }
+
+    MemoryPool(const MemoryPool&) = delete;
+    MemoryPool& operator=(const MemoryPool&) = delete;
+
+    MemoryPool(MemoryPool&& other) U_NOEXCEPT : fCount(other.fCount),
+                                                fPool(std::move(other.fPool)) {
+        other.fCount = 0;
+    }
+
+    MemoryPool& operator=(MemoryPool&& other) U_NOEXCEPT {
+        fCount = other.fCount;
+        fPool = std::move(other.fPool);
+        other.fCount = 0;
+        return *this;
+    }
+
+    /**
+     * Creates a new object of typename T, by forwarding any and all arguments
+     * to the typename T constructor.
+     *
+     * @param args Arguments to be forwarded to the typename T constructor.
+     * @return A pointer to the newly created object, or nullptr on error.
+     */
+    template<typename... Args>
+    T* create(Args&&... args) {
+        int32_t capacity = fPool.getCapacity();
+        if (fCount == capacity &&
+            fPool.resize(capacity == stackCapacity ? 4 * capacity : 2 * capacity,
+                         capacity) == nullptr) {
+            return nullptr;
+        }
+        return fPool[fCount++] = new T(std::forward<Args>(args)...);
+    }
+
+    /**
+     * @return Number of elements that have been allocated.
+     */
+    int32_t count() const {
+        return fCount;
+    }
+
+protected:
+    int32_t fCount;
+    MaybeStackArray<T*, stackCapacity> fPool;
+};
+
+/**
+ * An internal Vector-like implementation based on MemoryPool.
+ *
+ * Heap-allocates each element and stores pointers.
+ *
+ * To append an item to the vector, use emplaceBack.
+ *
+ *     MaybeStackVector<MyType> vector;
+ *     MyType* element = vector.emplaceBack();
+ *     if (!element) {
+ *         status = U_MEMORY_ALLOCATION_ERROR;
+ *     }
+ *     // do stuff with element
+ *
+ * To loop over the vector, use a for loop with indices:
+ *
+ *     for (int32_t i = 0; i < vector.length(); i++) {
+ *         MyType* element = vector[i];
+ *     }
+ */
+template<typename T, int32_t stackCapacity = 8>
+class MaybeStackVector : protected MemoryPool<T, stackCapacity> {
+public:
+    using MemoryPool<T, stackCapacity>::MemoryPool;
+    using MemoryPool<T, stackCapacity>::operator=;
+
+    template<typename... Args>
+    T* emplaceBack(Args&&... args) {
+        return this->create(args...);
+    }
+
+    int32_t length() const {
+        return this->fCount;
+    }
+
+    T** getAlias() {
+        return this->fPool.getAlias();
+    }
+
+    /**
+     * Array item access (read-only).
+     * No index bounds check.
+     * @param i array index
+     * @return reference to the array item
+     */
+    const T* operator[](ptrdiff_t i) const {
+        return this->fPool[i];
+    }
+
+    /**
+     * Array item access (writable).
+     * No index bounds check.
+     * @param i array index
+     * @return reference to the array item
+     */
+    T* operator[](ptrdiff_t i) {
+        return this->fPool[i];
+    }
+
+    /**
+     * Append all the items from another MaybeStackVector to this one.
+     */
+    void appendAll(const MaybeStackVector& other, UErrorCode& status) {
+        for (int32_t i = 0; i < other.fCount; i++) {
+            T* item = emplaceBack(*other[i]);
+            if (!item) {
+                status = U_MEMORY_ALLOCATION_ERROR;
+                return;
+            }
+        }
+    }
+};
+
 
 U_NAMESPACE_END
 

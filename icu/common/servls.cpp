@@ -1,6 +1,8 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /**
  *******************************************************************************
- * Copyright (C) 2001-2012, International Business Machines Corporation and    *
+ * Copyright (C) 2001-2014, International Business Machines Corporation and    *
  * others. All Rights Reserved.                                                *
  *******************************************************************************
  *
@@ -16,7 +18,6 @@
 #include "servloc.h"
 #include "ustrfmt.h"
 #include "charstr.h"
-#include "ucln_cmn.h"
 #include "uassert.h"
 
 #define UNDERSCORE_CHAR ((UChar)0x005f)
@@ -25,7 +26,6 @@
 
 U_NAMESPACE_BEGIN
 
-static UMutex llock = U_MUTEX_INITIALIZER;
 ICULocaleService::ICULocaleService()
   : fallbackLocale(Locale::getDefault())
 {
@@ -263,6 +263,7 @@ ICULocaleService::validateFallbackLocale() const
 {
     const Locale&     loc    = Locale::getDefault();
     ICULocaleService* ncThis = (ICULocaleService*)this;
+    static UMutex llock;
     {
         Mutex mutex(&llock);
         if (loc != fallbackLocale) {

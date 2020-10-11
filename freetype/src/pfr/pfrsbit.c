@@ -1,19 +1,19 @@
-/***************************************************************************/
-/*                                                                         */
-/*  pfrsbit.c                                                              */
-/*                                                                         */
-/*    FreeType PFR bitmap loader (body).                                   */
-/*                                                                         */
-/*  Copyright 2002-2016 by                                                 */
-/*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
-/*                                                                         */
-/*  This file is part of the FreeType project, and may only be used,       */
-/*  modified, and distributed under the terms of the FreeType project      */
-/*  license, LICENSE.TXT.  By continuing to use, modify, or distribute     */
-/*  this file you indicate that you have read the license and              */
-/*  understand and accept it fully.                                        */
-/*                                                                         */
-/***************************************************************************/
+/****************************************************************************
+ *
+ * pfrsbit.c
+ *
+ *   FreeType PFR bitmap loader (body).
+ *
+ * Copyright (C) 2002-2020 by
+ * David Turner, Robert Wilhelm, and Werner Lemberg.
+ *
+ * This file is part of the FreeType project, and may only be used,
+ * modified, and distributed under the terms of the FreeType project
+ * license, LICENSE.TXT.  By continuing to use, modify, or distribute
+ * this file you indicate that you have read the license and
+ * understand and accept it fully.
+ *
+ */
 
 
 #include "pfrsbit.h"
@@ -24,7 +24,7 @@
 #include "pfrerror.h"
 
 #undef  FT_COMPONENT
-#define FT_COMPONENT  trace_pfr
+#define FT_COMPONENT  pfr
 
 
   /*************************************************************************/
@@ -578,7 +578,8 @@
   FT_LOCAL( FT_Error )
   pfr_slot_load_bitmap( PFR_Slot  glyph,
                         PFR_Size  size,
-                        FT_UInt   glyph_index )
+                        FT_UInt   glyph_index,
+                        FT_Bool   metrics_only )
   {
     FT_Error     error;
     PFR_Face     face   = (PFR_Face) glyph->root.face;
@@ -774,6 +775,9 @@
         /* XXX: needs casts fit FT_GlyphSlotRec.bitmap_{left|top} */
         glyph->root.bitmap_left = (FT_Int)xpos;
         glyph->root.bitmap_top  = (FT_Int)( ypos + (FT_Long)ysize );
+
+        if ( metrics_only )
+          goto Exit1;
 
         /* Allocate and read bitmap data */
         {

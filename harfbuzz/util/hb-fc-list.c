@@ -171,7 +171,7 @@ main (int argc, char **argv)
 	os = FcObjectSetBuild (FC_FAMILY, FC_STYLE, FC_FILE, (char *) 0);
     FcObjectSetAdd (os, FC_CHARSET);
     if (!format)
-        format = (const FcChar8 *) "%{=fclist}\n";
+	format = (const FcChar8 *) "%{=fclist}\n";
     fs = FcFontList (0, pat, os);
     if (os)
 	FcObjectSetDestroy (os);
@@ -199,7 +199,7 @@ main (int argc, char **argv)
 	    }
 	    else
 	    {
-	        FcChar8 *s;
+		FcChar8 *s;
 
 		s = FcPatternFormat (fs->fonts[j], format);
 		if (s)

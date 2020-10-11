@@ -1,12 +1,12 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 ******************************************************************************
-*                                                                            *
-* Copyright (C) 1999-2012, International Business Machines                   *
-*                Corporation and others. All Rights Reserved.                *
-*                                                                            *
+* Copyright (C) 1999-2016, International Business Machines
+*                Corporation and others. All Rights Reserved.
 ******************************************************************************
 *   file name:  uresdata.h
-*   encoding:   US-ASCII
+*   encoding:   UTF-8
 *   tab size:   8 (not used)
 *   indentation:4
 *
@@ -51,6 +51,8 @@ typedef enum {
      * All values are URES_STRING_V2 strings.
      */
     URES_ARRAY16=9
+
+    /* Resource type 15 is not defined but effectively used by RES_BOGUS=0xffffffff. */
 } UResInternalType;
 
 /*
@@ -61,19 +63,22 @@ typedef enum {
 typedef uint32_t Resource;
 
 #define RES_BOGUS 0xffffffff
+#define RES_MAX_OFFSET 0x0fffffff
 
 #define RES_GET_TYPE(res) ((int32_t)((res)>>28UL))
 #define RES_GET_OFFSET(res) ((res)&0x0fffffff)
 #define RES_GET_POINTER(pRoot, res) ((pRoot)+RES_GET_OFFSET(res))
 
-/* get signed and unsigned integer values directly from the Resource handle */
+/* get signed and unsigned integer values directly from the Resource handle
+ * NOTE: For proper logging, please use the res_getInt() constexpr
+ */
 #if U_SIGNED_RIGHT_SHIFT_IS_ARITHMETIC
-#   define RES_GET_INT(res) (((int32_t)((res)<<4L))>>4L)
+#   define RES_GET_INT_NO_TRACE(res) (((int32_t)((res)<<4L))>>4L)
 #else
-#   define RES_GET_INT(res) (int32_t)(((res)&0x08000000) ? (res)|0xf0000000 : (res)&0x07ffffff)
+#   define RES_GET_INT_NO_TRACE(res) (int32_t)(((res)&0x08000000) ? (res)|0xf0000000 : (res)&0x07ffffff)
 #endif
 
-#define RES_GET_UINT(res) ((res)&0x0fffffff)
+#define RES_GET_UINT_NO_TRACE(res) ((res)&0x0fffffff)
 
 #define URES_IS_ARRAY(type) ((int32_t)(type)==URES_ARRAY || (int32_t)(type)==URES_ARRAY16)
 #define URES_IS_TABLE(type) ((int32_t)(type)==URES_TABLE || (int32_t)(type)==URES_TABLE16 || (int32_t)(type)==URES_TABLE32)
@@ -84,22 +89,48 @@ typedef uint32_t Resource;
 
 /* indexes[] value names; indexes are generally 32-bit (Resource) indexes */
 enum {
-    URES_INDEX_LENGTH,          /* [0] contains URES_INDEX_TOP==the length of indexes[];
-                                 *     formatVersion==1: all bits contain the length of indexes[]
-                                 *       but the length is much less than 0xff;
-                                 *     formatVersion>1:
-                                 *       only bits  7..0 contain the length of indexes[],
-                                 *            bits 31..8 are reserved and set to 0 */
-    URES_INDEX_KEYS_TOP,        /* [1] contains the top of the key strings, */
-                                /*     same as the bottom of resources or UTF-16 strings, rounded up */
-    URES_INDEX_RESOURCES_TOP,   /* [2] contains the top of all resources */
-    URES_INDEX_BUNDLE_TOP,      /* [3] contains the top of the bundle, */
-                                /*     in case it were ever different from [2] */
-    URES_INDEX_MAX_TABLE_LENGTH,/* [4] max. length of any table */
-    URES_INDEX_ATTRIBUTES,      /* [5] attributes bit set, see URES_ATT_* (new in formatVersion 1.2) */
-    URES_INDEX_16BIT_TOP,       /* [6] top of the 16-bit units (UTF-16 string v2 UChars, URES_TABLE16, URES_ARRAY16),
-                                 *     rounded up (new in formatVersion 2.0, ICU 4.4) */
-    URES_INDEX_POOL_CHECKSUM,   /* [7] checksum of the pool bundle (new in formatVersion 2.0, ICU 4.4) */
+    /**
+     * [0] contains the length of indexes[]
+     * which is at most URES_INDEX_TOP of the latest format version
+     *
+     * formatVersion==1: all bits contain the length of indexes[]
+     *   but the length is much less than 0xff;
+     * formatVersion>1:
+     *   only bits  7..0 contain the length of indexes[],
+     *        bits 31..8 are reserved and set to 0
+     * formatVersion>=3:
+     *        bits 31..8 poolStringIndexLimit bits 23..0
+     */
+    URES_INDEX_LENGTH,
+    /**
+     * [1] contains the top of the key strings,
+     *     same as the bottom of resources or UTF-16 strings, rounded up
+     */
+    URES_INDEX_KEYS_TOP,
+    /** [2] contains the top of all resources */
+    URES_INDEX_RESOURCES_TOP,
+    /**
+     * [3] contains the top of the bundle,
+     *     in case it were ever different from [2]
+     */
+    URES_INDEX_BUNDLE_TOP,
+    /** [4] max. length of any table */
+    URES_INDEX_MAX_TABLE_LENGTH,
+    /**
+     * [5] attributes bit set, see URES_ATT_* (new in formatVersion 1.2)
+     *
+     * formatVersion>=3:
+     *   bits 31..16 poolStringIndex16Limit
+     *   bits 15..12 poolStringIndexLimit bits 27..24
+     */
+    URES_INDEX_ATTRIBUTES,
+    /**
+     * [6] top of the 16-bit units (UTF-16 string v2 UChars, URES_TABLE16, URES_ARRAY16),
+     *     rounded up (new in formatVersion 2.0, ICU 4.4)
+     */
+    URES_INDEX_16BIT_TOP,
+    /** [7] checksum of the pool bundle (new in formatVersion 2.0, ICU 4.4) */
+    URES_INDEX_POOL_CHECKSUM,
     URES_INDEX_TOP
 };
 
@@ -126,9 +157,41 @@ enum {
 #define URES_ATT_USES_POOL_BUNDLE 4
 
 /*
- * File format for .res resource bundle files (formatVersion=2, ICU 4.4)
+ * File format for .res resource bundle files
  *
- * New in formatVersion 2 compared with 1.3: -------------
+ * ICU 56: New in formatVersion 3 compared with 2: -------------
+ *
+ * Resource bundles can optionally use shared string-v2 values
+ * stored in the pool bundle.
+ * If so, then the indexes[] contain two new values
+ * in previously-unused bits of existing indexes[] slots:
+ * - poolStringIndexLimit:
+ *     String-v2 offsets (in 32-bit Resource words) below this limit
+ *     point to pool bundle string-v2 values.
+ * - poolStringIndex16Limit:
+ *     Resource16 string-v2 offsets below this limit
+ *     point to pool bundle string-v2 values.
+ * Guarantee: poolStringIndex16Limit <= poolStringIndexLimit
+ *
+ * The local bundle's poolStringIndexLimit is greater than
+ * any pool bundle string index used in the local bundle.
+ * The poolStringIndexLimit should not be greater than
+ * the maximum possible pool bundle string index.
+ *
+ * The maximum possible pool bundle string index is the index to the last non-NUL
+ * pool string character, due to suffix sharing.
+ *
+ * In the pool bundle, there is no structure that lists the strings.
+ * (The root resource is an empty Table.)
+ * If the strings need to be enumerated (as genrb --usePoolBundle does),
+ * then iterate through the pool bundle's 16-bit-units array from the beginning.
+ * Stop at the end of the array, or when an explicit or implicit string length
+ * would lead beyond the end of the array,
+ * or when an apparent string is not NUL-terminated.
+ * (Future genrb version might terminate the strings with
+ * what looks like a large explicit string length.)
+ *
+ * ICU 4.4: New in formatVersion 2 compared with 1.3: -------------
  *
  * Three new resource types -- String-v2, Table16 and Array16 -- have their
  * values stored in a new array of 16-bit units between the table key strings
@@ -270,8 +333,12 @@ enum {
  * at 2-byte offsets from the start of a contiguous 16-bit-unit array between
  * the table key strings and the other resources. (new in formatVersion 2/ICU 4.4)
  * At offset 0 of that array is a 16-bit zero value for empty 16-bit resources.
+ *
  * Resource16 values in Table16 and Array16 are 16-bit offsets to String-v2
  * resources, with the offsets relative to the start of the 16-bit-units array.
+ * Starting with formatVersion 3/ICU 56, if offset<poolStringIndex16Limit
+ * then use the pool bundle's 16-bit-units array,
+ * otherwise subtract that limit and use the local 16-bit-units array.
  *
  * Type Name            Memory layout of values
  *                      (in parentheses: scalar, non-offset values)
@@ -293,6 +360,12 @@ enum {
  *                      - if first<0xdfff then length=((first-0xdfef)<<16) | second UChar
  *                      - if first==0xdfff then length=((second UChar)<<16) | third UChar
  *                      (stored in the 16-bit-units array; new in formatVersion 2/ICU 4.4)
+ *
+ *                      Starting with formatVersion 3/ICU 56, if offset<poolStringIndexLimit
+ *                      then use the pool bundle's 16-bit-units array,
+ *                      otherwise subtract that limit and use the local 16-bit-units array.
+ *                      (Note different limits for Resource16 vs. Resource.)
+ *
  * 7  Integer:          (28-bit offset is integer value)
  * 8  Array:            int32_t count, Resource[count]
  * 9  Array16:          uint16_t count, Resource16[count]
@@ -310,13 +383,16 @@ enum {
 /*
  * Structure for a single, memory-mapped ResourceBundle.
  */
-typedef struct {
+typedef struct ResourceData {
     UDataMemory *data;
     const int32_t *pRoot;
     const uint16_t *p16BitUnits;
     const char *poolBundleKeys;
     Resource rootRes;
     int32_t localKeyLimit;
+    const uint16_t *poolBundleStrings;
+    int32_t poolStringIndexLimit;
+    int32_t poolStringIndex16Limit;
     UBool noFallback; /* see URES_ATT_NO_FALLBACK */
     UBool isPoolBundle;
     UBool usesPoolBundle;
@@ -349,22 +425,26 @@ res_unload(ResourceData *pResData);
 U_INTERNAL UResType U_EXPORT2
 res_getPublicType(Resource res);
 
+///////////////////////////////////////////////////////////////////////////
+// To enable tracing, use the inline versions of the res_get* functions. //
+///////////////////////////////////////////////////////////////////////////
+
 /*
  * Return a pointer to a zero-terminated, const UChar* string
  * and set its length in *pLength.
  * Returns NULL if not found.
  */
 U_INTERNAL const UChar * U_EXPORT2
-res_getString(const ResourceData *pResData, Resource res, int32_t *pLength);
+res_getStringNoTrace(const ResourceData *pResData, Resource res, int32_t *pLength);
+
+U_INTERNAL const uint8_t * U_EXPORT2
+res_getBinaryNoTrace(const ResourceData *pResData, Resource res, int32_t *pLength);
+
+U_INTERNAL const int32_t * U_EXPORT2
+res_getIntVectorNoTrace(const ResourceData *pResData, Resource res, int32_t *pLength);
 
 U_INTERNAL const UChar * U_EXPORT2
 res_getAlias(const ResourceData *pResData, Resource res, int32_t *pLength);
-
-U_INTERNAL const uint8_t * U_EXPORT2
-res_getBinary(const ResourceData *pResData, Resource res, int32_t *pLength);
-
-U_INTERNAL const int32_t * U_EXPORT2
-res_getIntVector(const ResourceData *pResData, Resource res, int32_t *pLength);
 
 U_INTERNAL Resource U_EXPORT2
 res_getResource(const ResourceData *pResData, const char *key);
@@ -381,11 +461,97 @@ res_getTableItemByIndex(const ResourceData *pResData, Resource table, int32_t in
 U_INTERNAL Resource U_EXPORT2
 res_getTableItemByKey(const ResourceData *pResData, Resource table, int32_t *indexS, const char* * key);
 
-/*
+/**
+ * Iterates over the path and stops when a scalar resource is found.
+ * Follows aliases.
  * Modifies the contents of *path (replacing separators with NULs),
  * and also moves *path forward while it finds items.
+ *
+ * @param path input: "CollationElements/Sequence" or "zoneStrings/3/2" etc.;
+ *             output: points to the part that has not yet been processed
  */
-U_CFUNC Resource res_findResource(const ResourceData *pResData, Resource r, char** path, const char** key);
+U_CFUNC Resource res_findResource(const ResourceData *pResData, Resource r,
+                                  char** path, const char** key);
+
+#ifdef __cplusplus
+
+#include "resource.h"
+#include "restrace.h"
+
+U_NAMESPACE_BEGIN
+
+inline const UChar* res_getString(const ResourceTracer& traceInfo,
+        const ResourceData *pResData, Resource res, int32_t *pLength) {
+    traceInfo.trace("string");
+    return res_getStringNoTrace(pResData, res, pLength);
+}
+
+inline const uint8_t* res_getBinary(const ResourceTracer& traceInfo,
+        const ResourceData *pResData, Resource res, int32_t *pLength) {
+    traceInfo.trace("binary");
+    return res_getBinaryNoTrace(pResData, res, pLength);
+}
+
+inline const int32_t* res_getIntVector(const ResourceTracer& traceInfo,
+        const ResourceData *pResData, Resource res, int32_t *pLength) {
+    traceInfo.trace("intvector");
+    return res_getIntVectorNoTrace(pResData, res, pLength);
+}
+
+inline int32_t res_getInt(const ResourceTracer& traceInfo, Resource res) {
+    traceInfo.trace("int");
+    return RES_GET_INT_NO_TRACE(res);
+}
+
+inline uint32_t res_getUInt(const ResourceTracer& traceInfo, Resource res) {
+    traceInfo.trace("uint");
+    return RES_GET_UINT_NO_TRACE(res);
+}
+
+class ResourceDataValue : public ResourceValue {
+public:
+    ResourceDataValue() :
+        res(static_cast<Resource>(URES_NONE)),
+        fTraceInfo() {}
+    virtual ~ResourceDataValue();
+
+    void setData(const ResourceData *data) {
+        resData = *data;
+    }
+
+    void setResource(Resource r, ResourceTracer&& traceInfo) {
+        res = r;
+        fTraceInfo = traceInfo;
+    }
+
+    const ResourceData &getData() const { return resData; }
+    virtual UResType getType() const;
+    virtual const UChar *getString(int32_t &length, UErrorCode &errorCode) const;
+    virtual const UChar *getAliasString(int32_t &length, UErrorCode &errorCode) const;
+    virtual int32_t getInt(UErrorCode &errorCode) const;
+    virtual uint32_t getUInt(UErrorCode &errorCode) const;
+    virtual const int32_t *getIntVector(int32_t &length, UErrorCode &errorCode) const;
+    virtual const uint8_t *getBinary(int32_t &length, UErrorCode &errorCode) const;
+    virtual ResourceArray getArray(UErrorCode &errorCode) const;
+    virtual ResourceTable getTable(UErrorCode &errorCode) const;
+    virtual UBool isNoInheritanceMarker() const;
+    virtual int32_t getStringArray(UnicodeString *dest, int32_t capacity,
+                                   UErrorCode &errorCode) const;
+    virtual int32_t getStringArrayOrStringAsArray(UnicodeString *dest, int32_t capacity,
+                                                  UErrorCode &errorCode) const;
+    virtual UnicodeString getStringOrFirstOfArray(UErrorCode &errorCode) const;
+
+private:
+    // TODO(ICU-20769): If UResourceBundle.fResData becomes a pointer,
+    // then remove this value field again and just store a pResData pointer.
+    ResourceData resData;
+    Resource res;
+    ResourceTracer fTraceInfo;
+};
+
+U_NAMESPACE_END
+
+#endif  /* __cplusplus */
 
 /**
  * Swap an ICU resource bundle. See udataswp.h.

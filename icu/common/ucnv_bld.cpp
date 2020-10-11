@@ -1,11 +1,13 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
  ********************************************************************
  * COPYRIGHT:
- * Copyright (c) 1996-2013, International Business Machines Corporation and
+ * Copyright (c) 1996-2016, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************
  *
- *  uconv_bld.cpp:
+ *  ucnv_bld.cpp:
  *
  *  Defines functions that are used in the creation/initialization/deletion
  *  of converters and related structures.
@@ -64,33 +66,51 @@ converterData[UCNV_NUMBER_OF_SUPPORTED_CONVERTER_TYPES]={
 #endif
 
     &_Latin1Data,
-    &_UTF8Data, &_UTF16BEData, &_UTF16LEData, &_UTF32BEData, &_UTF32LEData,
+    &_UTF8Data, &_UTF16BEData, &_UTF16LEData,
+#if UCONFIG_ONLY_HTML_CONVERSION
+    NULL, NULL,
+#else
+    &_UTF32BEData, &_UTF32LEData,
+#endif
     NULL,
 
 #if UCONFIG_NO_LEGACY_CONVERSION
     NULL,
+#else
+    &_ISO2022Data,
+#endif
+
+#if UCONFIG_NO_LEGACY_CONVERSION || UCONFIG_ONLY_HTML_CONVERSION
     NULL, NULL, NULL, NULL, NULL, NULL,
     NULL, NULL, NULL, NULL, NULL, NULL,
     NULL,
 #else
-    &_ISO2022Data,
     &_LMBCSData1,&_LMBCSData2, &_LMBCSData3, &_LMBCSData4, &_LMBCSData5, &_LMBCSData6,
     &_LMBCSData8,&_LMBCSData11,&_LMBCSData16,&_LMBCSData17,&_LMBCSData18,&_LMBCSData19,
     &_HZData,
 #endif
 
+#if UCONFIG_ONLY_HTML_CONVERSION
+    NULL,
+#else
     &_SCSUData,
+#endif
 
-#if UCONFIG_NO_LEGACY_CONVERSION
+
+#if UCONFIG_NO_LEGACY_CONVERSION || UCONFIG_ONLY_HTML_CONVERSION
     NULL,
 #else
     &_ISCIIData,
 #endif
 
     &_ASCIIData,
+#if UCONFIG_ONLY_HTML_CONVERSION
+    NULL, NULL, &_UTF16Data, NULL, NULL, NULL,
+#else
     &_UTF7Data, &_Bocu1Data, &_UTF16Data, &_UTF32Data, &_CESU8Data, &_IMAPData,
+#endif
 
-#if UCONFIG_NO_LEGACY_CONVERSION
+#if UCONFIG_NO_LEGACY_CONVERSION || UCONFIG_ONLY_HTML_CONVERSION
     NULL,
 #else
     &_CompoundTextData
@@ -105,18 +125,24 @@ static struct {
   const char *name;
   const UConverterType type;
 } const cnvNameType[] = {
+#if !UCONFIG_ONLY_HTML_CONVERSION
   { "bocu1", UCNV_BOCU1 },
   { "cesu8", UCNV_CESU8 },
-#if !UCONFIG_NO_LEGACY_CONVERSION
+#endif
+#if !UCONFIG_NO_LEGACY_CONVERSION && !UCONFIG_ONLY_HTML_CONVERSION
   { "hz",UCNV_HZ },
 #endif
+#if !UCONFIG_ONLY_HTML_CONVERSION
   { "imapmailboxname", UCNV_IMAP_MAILBOX },
-#if !UCONFIG_NO_LEGACY_CONVERSION
+#endif
+#if !UCONFIG_NO_LEGACY_CONVERSION && !UCONFIG_ONLY_HTML_CONVERSION
   { "iscii", UCNV_ISCII },
+#endif
+#if !UCONFIG_NO_LEGACY_CONVERSION
   { "iso2022", UCNV_ISO_2022 },
 #endif
   { "iso88591", UCNV_LATIN_1 },
-#if !UCONFIG_NO_LEGACY_CONVERSION
+#if !UCONFIG_NO_LEGACY_CONVERSION && !UCONFIG_ONLY_HTML_CONVERSION
   { "lmbcs1", UCNV_LMBCS_1 },
   { "lmbcs11",UCNV_LMBCS_11 },
   { "lmbcs16",UCNV_LMBCS_16 },
@@ -130,7 +156,9 @@ static struct {
   { "lmbcs6", UCNV_LMBCS_6 },
   { "lmbcs8", UCNV_LMBCS_8 },
 #endif
+#if !UCONFIG_ONLY_HTML_CONVERSION
   { "scsu", UCNV_SCSU },
+#endif
   { "usascii", UCNV_US_ASCII },
   { "utf16", UCNV_UTF16 },
   { "utf16be", UCNV_UTF16_BigEndian },
@@ -142,6 +170,7 @@ static struct {
   { "utf16oppositeendian", UCNV_UTF16_BigEndian},
   { "utf16platformendian", UCNV_UTF16_LittleEndian },
 #endif
+#if !UCONFIG_ONLY_HTML_CONVERSION
   { "utf32", UCNV_UTF32 },
   { "utf32be", UCNV_UTF32_BigEndian },
   { "utf32le", UCNV_UTF32_LittleEndian },
@@ -152,17 +181,22 @@ static struct {
   { "utf32oppositeendian", UCNV_UTF32_BigEndian },
   { "utf32platformendian", UCNV_UTF32_LittleEndian },
 #endif
+#endif
+#if !UCONFIG_ONLY_HTML_CONVERSION
   { "utf7", UCNV_UTF7 },
+#endif
   { "utf8", UCNV_UTF8 },
+#if !UCONFIG_ONLY_HTML_CONVERSION
   { "x11compoundtext", UCNV_COMPOUND_TEXT}
+#endif
 };
 
 
 /*initializes some global variables */
 static UHashtable *SHARED_DATA_HASHTABLE = NULL;
-static UMutex cnvCacheMutex = U_MUTEX_INITIALIZER;  /* Mutex for synchronizing cnv cache access. */
-                                                    /*  Note:  the global mutex is used for      */
-                                                    /*         reference count updates.          */
+static icu::UMutex cnvCacheMutex;
+/*  Note:  the global mutex is used for      */
+/*         reference count updates.          */
 
 static const char **gAvailableConverters = NULL;
 static uint16_t gAvailableConverterCount = 0;
@@ -227,6 +261,11 @@ static UBool U_CALLCONV ucnv_cleanup(void) {
     return (SHARED_DATA_HASHTABLE == NULL);
 }
 
+U_CAPI void U_EXPORT2
+ucnv_enableCleanup() {
+    ucln_common_registerCleanup(UCLN_COMMON_UCNV, ucnv_cleanup);
+}
+
 static UBool U_CALLCONV
 isCnvAcceptable(void * /*context*/,
                 const char * /*type*/, const char * /*name*/,
@@ -260,6 +299,7 @@ ucnv_data_unFlattenClone(UConverterLoadArgs *pArgs, UDataMemory *pData, UErrorCo
 
     if( (uint16_t)type >= UCNV_NUMBER_OF_SUPPORTED_CONVERTER_TYPES ||
         converterData[type] == NULL ||
+        !converterData[type]->isReferenceCounted ||
         converterData[type]->referenceCounter != 1 ||
         source->structSize != sizeof(UConverterStaticData))
     {
@@ -276,26 +316,6 @@ ucnv_data_unFlattenClone(UConverterLoadArgs *pArgs, UDataMemory *pData, UErrorCo
     /* copy initial values from the static structure for this type */
     uprv_memcpy(data, converterData[type], sizeof(UConverterSharedData));
 
-#if 0 /* made UConverterMBCSTable part of UConverterSharedData -- markus 20031107 */
-    /*
-     * It would be much more efficient if the table were a direct member, not a pointer.
-     * However, that would add to the size of all UConverterSharedData objects
-     * even if they do not use this table (especially algorithmic ones).
-     * If this changes, then the static templates from converterData[type]
-     * need more entries.
-     *
-     * In principle, it would be cleaner if the load() function below
-     * allocated the table.
-     */
-    data->table = (UConverterTable *)uprv_malloc(sizeof(UConverterTable));
-    if(data->table == NULL) {
-        uprv_free(data);
-        *status = U_MEMORY_ALLOCATION_ERROR;
-        return NULL;
-    }
-    uprv_memset(data->table, 0, sizeof(UConverterTable));
-#endif
-
     data->staticData = source;
 
     data->sharedDataCached = FALSE;
@@ -306,7 +326,6 @@ ucnv_data_unFlattenClone(UConverterLoadArgs *pArgs, UDataMemory *pData, UErrorCo
     if(data->impl->load != NULL) {
         data->impl->load(data, pArgs, raw + source->structSize, status);
         if(U_FAILURE(*status)) {
-            uprv_free(data->table);
             uprv_free(data);
             return NULL;
         }
@@ -373,7 +392,7 @@ getAlgorithmicTypeFromName(const char *realName)
 
     /* do a binary search for the alias */
     start = 0;
-    limit = sizeof(cnvNameType)/sizeof(cnvNameType[0]);
+    limit = UPRV_LENGTHOF(cnvNameType);
     mid = limit;
     lastMid = UINT32_MAX;
 
@@ -425,7 +444,7 @@ ucnv_shareConverterData(UConverterSharedData * data)
         SHARED_DATA_HASHTABLE = uhash_openSize(uhash_hashChars, uhash_compareChars, NULL,
                             ucnv_io_countKnownConverters(&err)*UCNV_CACHE_LOAD_FACTOR,
                             &err);
-        ucln_common_registerCleanup(UCLN_COMMON_UCNV, ucnv_cleanup);
+        ucnv_enableCleanup();
 
         if (U_FAILURE(err))
             return;
@@ -510,25 +529,6 @@ ucnv_deleteSharedConverterData(UConverterSharedData * deadSharedData)
         udata_close(data);
     }
 
-    if(deadSharedData->table != NULL)
-    {
-        uprv_free(deadSharedData->table);
-    }
-
-#if 0
-    /* if the static data is actually owned by the shared data */
-    /* enable if we ever have this situation. */
-    if(deadSharedData->staticDataOwned == TRUE) /* see ucnv_bld.h */
-    {
-        uprv_free((void*)deadSharedData->staticData);
-    }
-#endif
-
-#if 0
-    /* Zap it ! */
-    uprv_memset(deadSharedData->0, sizeof(*deadSharedData));
-#endif
-
     uprv_free(deadSharedData);
 
     UTRACE_EXIT_VALUE((int32_t)TRUE);
@@ -579,7 +579,7 @@ ucnv_load(UConverterLoadArgs *pArgs, UErrorCode *err) {
 
 /**
  * Unload a non-algorithmic converter.
- * It must be sharedData->referenceCounter != ~0
+ * It must be sharedData->isReferenceCounted
  * and this function must be called inside umtx_lock(&cnvCacheMutex).
  */
 U_CAPI void
@@ -598,12 +598,7 @@ ucnv_unload(UConverterSharedData *sharedData) {
 U_CFUNC void
 ucnv_unloadSharedDataIfReady(UConverterSharedData *sharedData)
 {
-    /*
-    Checking whether it's an algorithic converter is okay
-    in multithreaded applications because the value never changes.
-    Don't check referenceCounter for any other value.
-    */
-    if(sharedData != NULL && sharedData->referenceCounter != (uint32_t)~0) {
+    if(sharedData != NULL && sharedData->isReferenceCounted) {
         umtx_lock(&cnvCacheMutex);
         ucnv_unload(sharedData);
         umtx_unlock(&cnvCacheMutex);
@@ -613,12 +608,7 @@ ucnv_unloadSharedDataIfReady(UConverterSharedData *sharedData)
 U_CFUNC void
 ucnv_incrementRefCount(UConverterSharedData *sharedData)
 {
-    /*
-    Checking whether it's an algorithic converter is okay
-    in multithreaded applications because the value never changes.
-    Don't check referenceCounter for any other value.
-    */
-    if(sharedData != NULL && sharedData->referenceCounter != (uint32_t)~0) {
+    if(sharedData != NULL && sharedData->isReferenceCounted) {
         umtx_lock(&cnvCacheMutex);
         sharedData->referenceCounter++;
         umtx_unlock(&cnvCacheMutex);
@@ -908,12 +898,7 @@ ucnv_createAlgorithmicConverter(UConverter *myUConverter,
     }
 
     sharedData = converterData[type];
-    /*
-    Checking whether it's an algorithic converter is okay
-    in multithreaded applications because the value never changes.
-    Don't check referenceCounter for any other value.
-    */
-    if(sharedData == NULL || sharedData->referenceCounter != (uint32_t)~0) {
+    if(sharedData == NULL || sharedData->isReferenceCounted) {
         /* not a valid type, or not an algorithmic converter */
         *err = U_ILLEGAL_ARGUMENT_ERROR;
         UTRACE_EXIT_STATUS(U_ILLEGAL_ARGUMENT_ERROR);
@@ -1086,7 +1071,7 @@ ucnv_flushCache ()
     i = 0;
     do {
         remaining = 0;
-        pos = -1;
+        pos = UHASH_FIRST;
         while ((e = uhash_nextElement (SHARED_DATA_HASHTABLE, &pos)) != NULL)
         {
             mySharedData = (UConverterSharedData *) e->value.pointer;
@@ -1119,7 +1104,7 @@ static void U_CALLCONV initAvailableConvertersList(UErrorCode &errCode) {
     U_ASSERT(gAvailableConverterCount == 0);
     U_ASSERT(gAvailableConverters == NULL);
 
-    ucln_common_registerCleanup(UCLN_COMMON_UCNV, ucnv_cleanup);
+    ucnv_enableCleanup();
     UEnumeration *allConvEnum = ucnv_openAllNames(&errCode);
     int32_t allConverterCount = uenum_count(allConvEnum, &errCode);
     if (U_FAILURE(errCode)) {
@@ -1225,7 +1210,7 @@ internalSetName(const char *name, UErrorCode *status) {
     //             -- Andy
     gDefaultConverterName = gDefaultConverterNameBuffer;
 
-    ucln_common_registerCleanup(UCLN_COMMON_UCNV, ucnv_cleanup);
+    ucnv_enableCleanup();
 
     umtx_unlock(&cnvCacheMutex);
 }

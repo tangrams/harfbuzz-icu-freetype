@@ -1,6 +1,8 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 **********************************************************************
-*   Copyright (C) 1997-2013, International Business Machines
+*   Copyright (C) 1997-2016, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *
@@ -59,7 +61,7 @@
  * http://www.ics.uci.edu/pub/ietf/http/related/iso639.txt</a>
  *
  * <P>
- * The second option includes an additonal <STRONG>ISO Country
+ * The second option includes an additional <STRONG>ISO Country
  * Code.</STRONG> These codes are the upper-case two-letter codes
  * as defined by ISO-3166.
  * You can find a full list of these codes at a number of sites, such as:
@@ -67,7 +69,7 @@
  * http://www.chemie.fu-berlin.de/diverse/doc/ISO_3166.html</a>
  *
  * <P>
- * The third option requires another additonal information--the 
+ * The third option requires another additional information--the 
  * <STRONG>Variant.</STRONG>
  * The Variant codes are vendor and browser-specific.
  * For example, use WIN for Windows, MAC for Macintosh, and POSIX for POSIX.
@@ -155,7 +157,7 @@
  * <STRONG>just</STRONG> a mechanism for identifying these services.
  *
  * <P>
- * Each international serivce that performs locale-sensitive operations 
+ * Each international service that performs locale-sensitive operations 
  * allows you
  * to get all the available objects of that type. You can sift
  * through these objects by language, country, or variant,
@@ -272,7 +274,7 @@
  * Useful constant for the maximum size of keywords in a locale
  * @stable ICU 2.8
  */
-#define ULOC_KEYWORDS_CAPACITY 50
+#define ULOC_KEYWORDS_CAPACITY 96
 
 /**
  * Useful constant for the maximum total size of keywords and their values in a locale
@@ -348,10 +350,14 @@ typedef enum {
    *  @deprecated ICU 2.8 
    */
   ULOC_REQUESTED_LOCALE = 2,
-#endif /* U_HIDE_DEPRECATED_API */
 
-  ULOC_DATA_LOCALE_TYPE_LIMIT = 3
-} ULocDataLocaleType ;
+    /**
+     * One more than the highest normal ULocDataLocaleType value.
+     * @deprecated ICU 58 The numeric value may change over time, see ICU ticket #12420.
+     */
+    ULOC_DATA_LOCALE_TYPE_LIMIT = 3
+#endif  // U_HIDE_DEPRECATED_API
+} ULocDataLocaleType;
 
 #ifndef U_HIDE_SYSTEM_API
 /**
@@ -533,6 +539,9 @@ uloc_getISO3Country(const char* localeID);
  * Gets the Win32 LCID value for the specified locale.
  * If the ICU locale is not recognized by Windows, 0 will be returned.
  *
+ * LCIDs were deprecated with Windows Vista and Microsoft recommends
+ * that developers use BCP47 style tags instead (uloc_toLanguageTag).
+ *
  * @param localeID the locale to get the Win32 LCID value with
  * @return country the Win32 LCID for localeID
  * @stable ICU 2.0
@@ -571,7 +580,7 @@ uloc_getDisplayLanguage(const char* locale,
  *                 if the locale's language code is "en", passing Locale::getFrench() for
  *                 inLocale would result in "", while passing Locale::getGerman()
  *                 for inLocale would result in "". NULL may be used to specify the default.
- * @param script the displayable country code for localeID
+ * @param script the displayable script for the localeID
  * @param scriptCapacity the size of the script buffer to store the  
  * displayable script code with
  * @param status error information if retrieving the displayable script code failed
@@ -588,6 +597,8 @@ uloc_getDisplayScript(const char* locale,
 
 /**
  * Gets the country name suitable for display for the specified locale.
+ * Warning: this is for the region part of a valid locale ID; it cannot just be the region code (like "FR").
+ * To get the display name for a region alone, or for other options, use ULocaleDisplayNames instead.
  *
  * @param locale the locale to get the displayable country code with. NULL may be used to specify the default.
  * @param displayLocale Specifies the locale to be used to display the name.  In other words,
@@ -731,12 +742,18 @@ uloc_getDisplayName(const char* localeID,
 
 
 /**
- * Gets the specified locale from a list of all available locales.  
- * The return value is a pointer to an item of 
- * a locale name array.  Both this array and the pointers
- * it contains are owned by ICU and should not be deleted or written through
- * by the caller.  The locale name is terminated by a null pointer.
- * @param n the specific locale name index of the available locale list
+ * Gets the specified locale from a list of available locales.
+ *
+ * This method corresponds to uloc_openAvailableByType called with the
+ * ULOC_AVAILABLE_DEFAULT type argument.
+ *
+ * The return value is a pointer to an item of a locale name array. Both this
+ * array and the pointers it contains are owned by ICU and should not be
+ * deleted or written through by the caller. The locale name is terminated by
+ * a null pointer.
+ *
+ * @param n the specific locale name index of the available locale list;
+ *     should not exceed the number returned by uloc_countAvailable.
  * @return a specified locale name of all available locales
  * @stable ICU 2.0
  */
@@ -750,6 +767,72 @@ uloc_getAvailable(int32_t n);
  * @stable ICU 2.0
  */
 U_STABLE int32_t U_EXPORT2 uloc_countAvailable(void);
+
+#ifndef U_HIDE_DRAFT_API
+
+/**
+ * Types for uloc_getAvailableByType and uloc_countAvailableByType.
+ *
+ * @draft ICU 65
+ */
+typedef enum ULocAvailableType {
+  /**
+   * Locales that return data when passed to ICU APIs,
+   * but not including legacy or alias locales.
+   *
+   * @draft ICU 65
+   */
+  ULOC_AVAILABLE_DEFAULT,
+
+  /**
+   * Legacy or alias locales that return data when passed to ICU APIs.
+   * Examples of supported legacy or alias locales:
+   *
+   * - iw (alias to he)
+   * - mo (alias to ro)
+   * - zh_CN (alias to zh_Hans_CN)
+   * - sr_BA (alias to sr_Cyrl_BA)
+   * - ars (alias to ar_SA)
+   *
+   * The locales in this set are disjoint from the ones in
+   * ULOC_AVAILABLE_DEFAULT. To get both sets at the same time, use
+   * ULOC_AVAILABLE_WITH_LEGACY_ALIASES.
+   *
+   * @draft ICU 65
+   */
+  ULOC_AVAILABLE_ONLY_LEGACY_ALIASES,
+
+  /**
+   * The union of the locales in ULOC_AVAILABLE_DEFAULT and
+   * ULOC_AVAILABLE_ONLY_LEGACY_ALIAS.
+   *
+   * @draft ICU 65
+   */
+  ULOC_AVAILABLE_WITH_LEGACY_ALIASES,
+
+#ifndef U_HIDE_INTERNAL_API
+  /**
+   * @internal
+   */
+  ULOC_AVAILABLE_COUNT
+#endif
+} ULocAvailableType;
+
+/**
+ * Gets a list of available locales according to the type argument, allowing
+ * the user to access different sets of supported locales in ICU.
+ *
+ * The returned UEnumeration must be closed by the caller.
+ *
+ * @param type Type choice from ULocAvailableType.
+ * @param status Set if an error occurred.
+ * @return a UEnumeration owned by the caller, or nullptr on failure.
+ * @draft ICU 65
+ */
+U_DRAFT UEnumeration* U_EXPORT2
+uloc_openAvailableByType(ULocAvailableType type, UErrorCode* status);
+
+#endif // U_HIDE_DRAFT_API
 
 /**
  *
@@ -844,10 +927,12 @@ uloc_openKeywords(const char* localeID,
  * Get the value for a keyword. Locale name does not need to be normalized.
  * 
  * @param localeID locale name containing the keyword ("de_DE@currency=EURO;collation=PHONEBOOK")
- * @param keywordName name of the keyword for which we want the value. Case insensitive.
+ * @param keywordName name of the keyword for which we want the value; must not be
+ *  NULL or empty, and must consist only of [A-Za-z0-9]. Case insensitive.
  * @param buffer receiving buffer
  * @param bufferCapacity capacity of receiving buffer
- * @param status containing error code - buffer not big enough.
+ * @param status containing error code: e.g. buffer not big enough or ill-formed localeID
+ *  or keywordName parameters.
  * @return the length of keyword value
  * @stable ICU 2.8
  */
@@ -864,18 +949,26 @@ uloc_getKeywordValue(const char* localeID,
  * For removing all keywords, use uloc_getBaseName().
  *
  * NOTE: Unlike almost every other ICU function which takes a
- * buffer, this function will NOT truncate the output text. If a
- * BUFFER_OVERFLOW_ERROR is received, it means that the original
- * buffer is untouched. This is done to prevent incorrect or possibly
- * even malformed locales from being generated and used.
+ * buffer, this function will NOT truncate the output text, and will
+ * not update the buffer with unterminated text setting a status of
+ * U_STRING_NOT_TERMINATED_WARNING. If a BUFFER_OVERFLOW_ERROR is received,
+ * it means a terminated version of the updated locale ID would not fit
+ * in the buffer, and the original buffer is untouched. This is done to
+ * prevent incorrect or possibly even malformed locales from being generated
+ * and used.
  *
- * @param keywordName name of the keyword to be set. Case insensitive.
+ * @param keywordName name of the keyword to be set; must not be
+ *  NULL or empty, and must consist only of [A-Za-z0-9]. Case insensitive.
  * @param keywordValue value of the keyword to be set. If 0-length or
- *  NULL, will result in the keyword being removed. No error is given if 
- *  that keyword does not exist.
- * @param buffer input buffer containing locale to be modified.
+ *  NULL, will result in the keyword being removed; no error is given if 
+ *  that keyword does not exist. Otherwise, must consist only of
+ *  [A-Za-z0-9] and [/_+-].
+ * @param buffer input buffer containing well-formed locale ID to be
+ *  modified.
  * @param bufferCapacity capacity of receiving buffer
- * @param status containing error code - buffer not big enough.
+ * @param status containing error code: e.g. buffer not big enough
+ *  or ill-formed keywordName or keywordValue parameters, or ill-formed
+ *  locale ID in buffer on input.
  * @return the length needed for the buffer
  * @see uloc_getKeywordValue
  * @stable ICU 3.2
@@ -885,6 +978,23 @@ uloc_setKeywordValue(const char* keywordName,
                      const char* keywordValue,
                      char* buffer, int32_t bufferCapacity,
                      UErrorCode* status);
+
+/**
+ * Returns whether the locale's script is written right-to-left.
+ * If there is no script subtag, then the likely script is used, see uloc_addLikelySubtags().
+ * If no likely script is known, then FALSE is returned.
+ *
+ * A script is right-to-left according to the CLDR script metadata
+ * which corresponds to whether the script's letters have Bidi_Class=R or AL.
+ *
+ * Returns TRUE for "ar" and "en-Hebr", FALSE for "zh" and "fa-Cyrl".
+ *
+ * @param locale input locale ID
+ * @return TRUE if the locale's script is written right-to-left
+ * @stable ICU 54
+ */
+U_STABLE UBool U_EXPORT2
+uloc_isRightToLeft(const char *locale);
 
 /**
  * enums for the  return value for the character and line orientation
@@ -924,29 +1034,45 @@ uloc_getLineOrientation(const char* localeId,
                         UErrorCode *status);
 
 /**
- * enums for the 'outResult' parameter return value
+ * Output values which uloc_acceptLanguage() writes to the 'outResult' parameter.
+ *
  * @see uloc_acceptLanguageFromHTTP
  * @see uloc_acceptLanguage
  * @stable ICU 3.2
  */
 typedef enum {
-  ULOC_ACCEPT_FAILED   = 0,  /* No exact match was found. */
-  ULOC_ACCEPT_VALID    = 1,  /* An exact match was found. */
-  ULOC_ACCEPT_FALLBACK = 2   /* A fallback was found, for example, 
-                                Accept list contained 'ja_JP'
-                                which matched available locale 'ja'. */
+    /**
+     * No exact match was found.
+     * @stable ICU 3.2
+     */
+    ULOC_ACCEPT_FAILED   = 0,
+    /**
+     * An exact match was found.
+     * @stable ICU 3.2
+     */
+    ULOC_ACCEPT_VALID    = 1,
+    /**
+     * A fallback was found. For example, the Accept-Language list includes 'ja_JP'
+     * and is matched with available locale 'ja'.
+     * @stable ICU 3.2
+     */
+    ULOC_ACCEPT_FALLBACK = 2   /*  */
 } UAcceptResult;
-
 
 /**
  * Based on a HTTP header from a web browser and a list of available locales,
  * determine an acceptable locale for the user.
+ *
+ * This is a thin wrapper over C++ class LocaleMatcher.
+ *
  * @param result - buffer to accept the result locale
  * @param resultAvailable the size of the result buffer.
  * @param outResult - An out parameter that contains the fallback status
  * @param httpAcceptLanguage - "Accept-Language:" header as per HTTP.
  * @param availableLocales - list of available locales to match
- * @param status Error status, may be BUFFER_OVERFLOW_ERROR
+ * @param status ICU error code. Its input value must pass the U_SUCCESS() test,
+ *               or else the function returns immediately. Check for U_FAILURE()
+ *               on output or use with function chaining. (See User Guide for details.)
  * @return length needed for the locale.
  * @stable ICU 3.2
  */
@@ -960,13 +1086,18 @@ uloc_acceptLanguageFromHTTP(char *result, int32_t resultAvailable,
 /**
  * Based on a list of available locales,
  * determine an acceptable locale for the user.
+ *
+ * This is a thin wrapper over C++ class LocaleMatcher.
+ *
  * @param result - buffer to accept the result locale
  * @param resultAvailable the size of the result buffer.
  * @param outResult - An out parameter that contains the fallback status
  * @param acceptList - list of acceptable languages
  * @param acceptListCount - count of acceptList items
  * @param availableLocales - list of available locales to match
- * @param status Error status, may be BUFFER_OVERFLOW_ERROR
+ * @param status ICU error code. Its input value must pass the U_SUCCESS() test,
+ *               or else the function returns immediately. Check for U_FAILURE()
+ *               on output or use with function chaining. (See User Guide for details.)
  * @return length needed for the locale.
  * @stable ICU 3.2
  */
@@ -1131,5 +1262,104 @@ uloc_toLanguageTag(const char* localeID,
                    int32_t langtagCapacity,
                    UBool strict,
                    UErrorCode* err);
+
+/**
+ * Converts the specified keyword (legacy key, or BCP 47 Unicode locale
+ * extension key) to the equivalent BCP 47 Unicode locale extension key.
+ * For example, BCP 47 Unicode locale extension key "co" is returned for
+ * the input keyword "collation".
+ * <p>
+ * When the specified keyword is unknown, but satisfies the BCP syntax,
+ * then the pointer to the input keyword itself will be returned.
+ * For example,
+ * <code>uloc_toUnicodeLocaleKey("ZZ")</code> returns "ZZ".
+ * 
+ * @param keyword       the input locale keyword (either legacy key
+ *                      such as "collation" or BCP 47 Unicode locale extension
+ *                      key such as "co").
+ * @return              the well-formed BCP 47 Unicode locale extension key,
+ *                      or NULL if the specified locale keyword cannot be
+ *                      mapped to a well-formed BCP 47 Unicode locale extension
+ *                      key. 
+ * @see uloc_toLegacyKey
+ * @stable ICU 54
+ */
+U_STABLE const char* U_EXPORT2
+uloc_toUnicodeLocaleKey(const char* keyword);
+
+/**
+ * Converts the specified keyword value (legacy type, or BCP 47
+ * Unicode locale extension type) to the well-formed BCP 47 Unicode locale
+ * extension type for the specified keyword (category). For example, BCP 47
+ * Unicode locale extension type "phonebk" is returned for the input
+ * keyword value "phonebook", with the keyword "collation" (or "co").
+ * <p>
+ * When the specified keyword is not recognized, but the specified value
+ * satisfies the syntax of the BCP 47 Unicode locale extension type,
+ * or when the specified keyword allows 'variable' type and the specified
+ * value satisfies the syntax,  then the pointer to the input type value itself
+ * will be returned.
+ * For example,
+ * <code>uloc_toUnicodeLocaleType("Foo", "Bar")</code> returns "Bar",
+ * <code>uloc_toUnicodeLocaleType("variableTop", "00A4")</code> returns "00A4".
+ * 
+ * @param keyword       the locale keyword (either legacy key such as
+ *                      "collation" or BCP 47 Unicode locale extension
+ *                      key such as "co").
+ * @param value         the locale keyword value (either legacy type
+ *                      such as "phonebook" or BCP 47 Unicode locale extension
+ *                      type such as "phonebk").
+ * @return              the well-formed BCP47 Unicode locale extension type,
+ *                      or NULL if the locale keyword value cannot be mapped to
+ *                      a well-formed BCP 47 Unicode locale extension type.
+ * @see uloc_toLegacyType
+ * @stable ICU 54
+ */
+U_STABLE const char* U_EXPORT2
+uloc_toUnicodeLocaleType(const char* keyword, const char* value);
+
+/**
+ * Converts the specified keyword (BCP 47 Unicode locale extension key, or
+ * legacy key) to the legacy key. For example, legacy key "collation" is
+ * returned for the input BCP 47 Unicode locale extension key "co".
+ * 
+ * @param keyword       the input locale keyword (either BCP 47 Unicode locale
+ *                      extension key or legacy key).
+ * @return              the well-formed legacy key, or NULL if the specified
+ *                      keyword cannot be mapped to a well-formed legacy key.
+ * @see toUnicodeLocaleKey
+ * @stable ICU 54
+ */
+U_STABLE const char* U_EXPORT2
+uloc_toLegacyKey(const char* keyword);
+
+/**
+ * Converts the specified keyword value (BCP 47 Unicode locale extension type,
+ * or legacy type or type alias) to the canonical legacy type. For example,
+ * the legacy type "phonebook" is returned for the input BCP 47 Unicode
+ * locale extension type "phonebk" with the keyword "collation" (or "co").
+ * <p>
+ * When the specified keyword is not recognized, but the specified value
+ * satisfies the syntax of legacy key, or when the specified keyword
+ * allows 'variable' type and the specified value satisfies the syntax,
+ * then the pointer to the input type value itself will be returned.
+ * For example,
+ * <code>uloc_toLegacyType("Foo", "Bar")</code> returns "Bar",
+ * <code>uloc_toLegacyType("vt", "00A4")</code> returns "00A4".
+ *
+ * @param keyword       the locale keyword (either legacy keyword such as
+ *                      "collation" or BCP 47 Unicode locale extension
+ *                      key such as "co").
+ * @param value         the locale keyword value (either BCP 47 Unicode locale
+ *                      extension type such as "phonebk" or legacy keyword value
+ *                      such as "phonebook").
+ * @return              the well-formed legacy type, or NULL if the specified
+ *                      keyword value cannot be mapped to a well-formed legacy
+ *                      type.
+ * @see toUnicodeLocaleType
+ * @stable ICU 54
+ */
+U_STABLE const char* U_EXPORT2
+uloc_toLegacyType(const char* keyword, const char* value);
 
 #endif /*_ULOC*/
