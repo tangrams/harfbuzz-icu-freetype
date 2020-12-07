@@ -317,7 +317,7 @@ target_compile_definitions(harfbuzz PRIVATE -DHAVE_FREETYPE)
 if (HARFBUZZ_BUILD_ICU)
     target_sources(harfbuzz PRIVATE harfbuzz/src/hb-icu.cc)
     target_include_directories(harfbuzz PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/icu/common)
-    target_link_libraries(harfbuzz icucommon)
+    target_link_libraries(harfbuzz PRIVATE icucommon)
     target_compile_definitions(harfbuzz PRIVATE -DHAVE_ICU -DHAVE_ICU_BUILTIN)
     set(HARFBUZZ_UNICODE_LIB icucommon)
 endif()
@@ -328,23 +328,14 @@ if(APPLE AND HB_HAVE_CORETEXT)
     target_sources(harfbuzz PRIVATE harfbuzz/src/hb-coretext.cc)
 
     if (IOS)
-        # CORE_TEXT needed for ios
-        find_library(CORE_TEXT CoreText)
-        if (CORE_TEXT)
-            target_link_libraries(harfbuzz ${CORE_TEXT})
-        endif (CORE_TEXT)
-
-        # CORE_GRAPHICS needed for ios
-        find_library(CORE_GRAPHICS CoreGraphics)
-        if (CORE_GRAPHICS)
-            target_link_libraries(harfbuzz ${CORE_GRAPHICS})
-        endif (CORE_GRAPHICS)
+        # CoreText and CoreGraphics needed for ios
+        target_link_libraries(harfbuzz PRIVATE
+            "-framework CoreText"
+            "-framework CoreGraphics")
     else(IOS)
-        # APPLICATION_SERVICES_FRAMEWORK needed for osx
-        find_library(APPLICATION_SERVICES_FRAMEWORK ApplicationServices)
-        if (APPLICATION_SERVICES_FRAMEWORK)
-            target_link_libraries(harfbuzz ${APPLICATION_SERVICES_FRAMEWORK})
-        endif (APPLICATION_SERVICES_FRAMEWORK)
+        # ApplicationServices needed for osx
+        target_link_libraries(harfbuzz PRIVATE
+            "-framework ApplicationServices")
     endif(IOS)
 
 endif()
