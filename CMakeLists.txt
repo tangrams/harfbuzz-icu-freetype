@@ -251,6 +251,13 @@ if (HARFBUZZ_BUILD_ICU)
           -wd4267
           -wd4244)
     endif()
+    if(WIN32)
+    # Needed for MinGW (MSVC probably too) - set minimum windows version for locale fns.
+    target_compile_definitions(icucommon
+        PRIVATE
+        WINVER=0x0601
+        _WIN32_WINNT=0x601)
+    endif()
 endif()
 
 
